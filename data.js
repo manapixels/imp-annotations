@@ -63,25 +63,36 @@ const DIRECTIONS = [
    source:"human"-> status "added".
    aiLabel keeps the ORIGINAL ai guess so corrections stay recoverable as the
    training-delta signal even after a human edits the live label.            */
+/* Reviewers who can be the active session user. `by` on an annotation records
+   who created / accepted / corrected / rejected it. */
+const USERS = [
+  { id: 'u-mei',   name: 'Mei Tan',    initials: 'MT', role: 'Lead reviewer' },
+  { id: 'u-arjun', name: 'Arjun Rao',  initials: 'AR', role: 'Reviewer' },
+  { id: 'u-sofia', name: 'Sofia Lima', initials: 'SL', role: 'Reviewer' },
+  { id: 'u-kenji', name: 'Kenji Mori', initials: 'KM', role: 'Reviewer' },
+];
+const CURRENT_USER_ID = 'u-mei';   // the active reviewer for this dummy session
+
 function ai(f0, f1, typeId, direction) {
   return { f0, f1, typeId, direction, source: 'ai', status: 'unreviewed',
-           aiLabel: { typeId, direction } };
+           aiLabel: { typeId, direction }, by: null };
 }
 function human(f0, f1, typeId, direction) {
-  return { f0, f1, typeId, direction, source: 'human', status: 'added', aiLabel: null };
+  return { f0, f1, typeId, direction, source: 'human', status: 'added', aiLabel: null,
+           by: CURRENT_USER_ID };
 }
 
 /* Per-video specs. status is the *stored* lifecycle state for the demo:
    unannotated | needs_review | in_progress | done | deferred | issue        */
 const VIDEO_SPECS = [
   { slot: '08:00', status: 'done', anns: [
-      Object.assign(ai(0.06, 0.13, 'fire-dragon', 'E'),  { status: 'accepted' }),
-      Object.assign(ai(0.40, 0.47, 'water-penguin', 'NE'), { status: 'corrected', typeId: 'water-serpent', direction: 'N' }),
+      Object.assign(ai(0.06, 0.13, 'fire-dragon', 'E'),  { status: 'accepted', by: 'u-arjun' }),
+      Object.assign(ai(0.40, 0.47, 'water-penguin', 'NE'), { status: 'corrected', typeId: 'water-serpent', direction: 'N', by: 'u-sofia' }),
       human(0.72, 0.80, 'spark-hornet', 'SE'),
   ]},
   { slot: '08:15', status: 'done', anns: [
-      Object.assign(ai(0.18, 0.26, 'shadow-bat', 'W'), { status: 'accepted' }),
-      Object.assign(ai(0.55, 0.61, 'air-falcon', 'S'), { status: 'rejected' }),
+      Object.assign(ai(0.18, 0.26, 'shadow-bat', 'W'), { status: 'accepted', by: 'u-mei' }),
+      Object.assign(ai(0.55, 0.61, 'air-falcon', 'S'), { status: 'rejected', by: 'u-arjun' }),
   ]},
   { slot: '08:30', status: 'issue', flagged: true,
     flagNote: 'Frame freeze around 0:40 — cannot confirm exit direction. Escalated.',
@@ -103,7 +114,7 @@ const VIDEO_SPECS = [
   ]},
   { slot: '09:15', status: 'unannotated', anns: [] },
   { slot: '09:30', status: 'in_progress', anns: [
-      Object.assign(ai(0.10, 0.18, 'air-cyclone', 'E'), { status: 'accepted' }),
+      Object.assign(ai(0.10, 0.18, 'air-cyclone', 'E'), { status: 'accepted', by: 'u-kenji' }),
       ai(0.44, 0.52, 'shadow-wraith', 'W'),
       ai(0.66, 0.74, 'spark-drone', 'N'),
   ]},
@@ -118,7 +129,7 @@ const VIDEO_SPECS = [
   ]},
   { slot: '10:15', status: 'unannotated', anns: [] },
   { slot: '10:30', status: 'done', anns: [
-      Object.assign(ai(0.20, 0.28, 'shadow-panther', 'E'), { status: 'accepted' }),
+      Object.assign(ai(0.20, 0.28, 'shadow-panther', 'E'), { status: 'accepted', by: 'u-sofia' }),
       human(0.55, 0.63, 'spark-hornet', 'N'),
   ]},
   { slot: '10:45', status: 'deferred', anns: [] },
@@ -166,6 +177,7 @@ window.DEMO = {
   IMP_TYPES: IMP_TYPES,
   DIRECTIONS: DIRECTIONS,
   VIDEOS: VIDEOS,
+  USERS: USERS,
+  CURRENT_USER_ID: CURRENT_USER_ID,
   DEFAULT_VIDEO_ID: 'imp-rec-2404',  // the 08:45 needs_review clip
-  REVIEWER: { name: 'A. Reviewer', handle: 'manapixels' },
 };

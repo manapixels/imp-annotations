@@ -16,8 +16,8 @@
   /* text */
   --txt:    #e7ecf3;
   --txt-2:  #aab4c2;
-  --muted:  #6f7c8d;
-  --faint:  #4b5564;
+  --muted:  #828e9f;
+  --faint:  #768295;
 
   /* signal colours */
   --amber:    #f7b32b;   /* annotation / jump markers (the wireframe yellow) */
@@ -138,17 +138,56 @@ input  { font-family: inherit; }
   position: relative;
 }
 .icon-btn:hover { color: var(--txt); border-color: #3a4554; }
-.icon-btn.accent { color: #1b1206; background: linear-gradient(180deg,#ffd06a,var(--amber)); border-color: var(--amber-dk); }
+/* shortcut button: amber-hinted outline (discoverable, on-brand) — not a solid
+   block, so it doesn't compete with the single primary action (Mark imp entry). */
+.icon-btn.accent { color: var(--amber); background: var(--panel-3); border-color: rgba(247,179,43,.4); }
+.icon-btn.accent:hover { color: var(--amber); background: rgba(247,179,43,.1); border-color: var(--amber); }
 .icon-btn .badge {
   position: absolute; top: -6px; right: -6px;
   background: var(--amber); color: #1b1206; font-family: var(--ff-mono);
   font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 5px;
 }
 
+/* ---- neutral initials avatar (no per-user colour, to keep the palette calm) */
+.avatar {
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  display: inline-grid; place-items: center;
+  font-family: var(--ff-mono); font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  background: #2c3543; color: #cdd6e2; border: 1px solid #3a4555;
+}
+.avatar.sm { width: 16px; height: 16px; font-size: 8px; }
+
+/* ---- user / reviewer switcher --------------------------------------------- */
+.user-menu { position: relative; }
+.user-btn {
+  display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 9px 0 5px;
+  border-radius: var(--r-sm); background: var(--panel-3); border: 1px solid var(--line); color: var(--txt);
+}
+.user-btn:hover { border-color: #3a4554; }
+.user-btn .uname { font-size: 13px; font-weight: 600; }
+.user-btn .chev { color: var(--muted); }
+.user-dropdown {
+  position: absolute; top: 46px; right: 0; width: 240px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-2); padding: 6px; display: none; z-index: 60;
+}
+.user-dropdown.open { display: block; animation: rise .14s ease; }
+.user-dropdown .ud-head {
+  font-family: var(--ff-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); padding: 7px 8px 9px;
+}
+.user-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: var(--r-sm); background: none; border: 0; color: var(--txt); text-align: left; }
+.user-item:hover { background: var(--panel-3); }
+.user-item.current { background: rgba(255,255,255,.04); }
+.user-item .ui-meta { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.user-item .ui-name { font-size: 13px; font-weight: 600; }
+.user-item .ui-role { font-size: 11px; color: var(--muted); }
+.user-item .ui-check { margin-left: auto; color: var(--green); font-weight: 700; }
+
 /* ---- workspace ------------------------------------------------------------ */
 .workspace {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: 1fr 384px;
   min-height: 0;
 }
 
@@ -195,11 +234,23 @@ input  { font-family: inherit; }
   padding: 7px 13px; border-radius: var(--r-sm); font-size: 13px; font-weight: 600;
 }
 .btn:hover { border-color: #3a4554; background: #222a36; }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.primary { background: linear-gradient(180deg,#ffd06a,var(--amber)); color: #1b1206; border-color: var(--amber-dk); }
 .btn.primary:hover { filter: brightness(1.05); }
+/* filled green = the "done" STATE (only after a clip is reviewed), never a CTA */
 .btn.green { background: linear-gradient(180deg,#5ee39a,var(--green)); color: #062313; border-color: #2a8f5a; }
+/* actionable "Mark reviewed" = green-accented ghost, so it doesn't compete with
+   the amber primary action and green stays reserved for the done state */
+.btn.green-outline { background: none; border-color: rgba(65,212,134,.45); color: var(--green); }
+.btn.green-outline:hover { background: rgba(65,212,134,.12); border-color: var(--green); }
 .btn.ghost { background: none; }
+/* disabled = unmistakably inert: drop the fill entirely, don't just fade it */
+.btn:disabled,
+.btn.primary:disabled,
+.btn.green:disabled,
+.btn.green-outline:disabled {
+  cursor: not-allowed; background: none; border-color: var(--line-soft);
+  color: var(--faint); box-shadow: none; filter: none;
+}
 .btn.danger { color: var(--red); }
 .btn.danger:hover { background: rgba(255,93,99,.1); border-color: rgba(255,93,99,.4); }
 
@@ -367,31 +418,36 @@ input  { font-family: inherit; }
 }
 .qcell .qtime { font-family: var(--ff-mono); font-weight: 600; color: var(--txt); }
 .qcell .qmeta { font-size: 10px; color: var(--muted); }
-.qcell .qdot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; }
+/* status marker is a GLYPH (distinct shape per status), not just a coloured dot,
+   so status survives colour-blindness even before reading the text label */
+.qcell .qdot { position: absolute; top: 5px; right: 7px; font-size: 11px; line-height: 1; }
 .qcell:hover { border-color: #3a4554; }
-.qcell.selected { outline: 2px solid var(--amber); outline-offset: 1px; }
+/* selection = white ring (matches annotation rows + timeline markers) via
+   box-shadow, which respects the radius and avoids the offset "double ring"
+   the amber outline made against the cyan status border */
+.queue-grid .qcell.selected { border-color: #eef2f7; box-shadow: 0 0 0 3px rgba(238,242,247,.16); }
 
 /* status styling for queue cells */
 .qcell.q-unannotated { border-color: #4a5566; border-width: 2px; }          /* black/strong border */
-.qcell.q-unannotated .qdot { background: #5a6678; }
-.qcell.q-needs_review .qdot { background: var(--cyan); }
+.qcell.q-unannotated .qdot { color: #8693a4; }
+.qcell.q-needs_review .qdot { color: var(--cyan); }
 .qcell.q-needs_review { border-color: rgba(56,209,230,.4); }
-.qcell.q-in_progress  .qdot { background: var(--amber); }
+.qcell.q-in_progress  .qdot { color: var(--amber); }
 .qcell.q-in_progress  { border-color: rgba(247,179,43,.4); }
 .qcell.q-done { background: rgba(65,212,134,.08); border-color: rgba(65,212,134,.35); }
-.qcell.q-done .qdot { background: var(--green); }
+.qcell.q-done .qdot { color: var(--green); }
 .qcell.q-done .qtime { color: #b6efce; }
 .qcell.q-deferred { background: #14171c; color: var(--faint); opacity: .65; }   /* grayed out */
 .qcell.q-deferred .qtime { color: var(--muted); }
-.qcell.q-deferred .qdot { background: var(--faint); }
+.qcell.q-deferred .qdot { color: var(--faint); }
 .qcell.q-issue { background: rgba(255,93,99,.12); border-color: rgba(255,93,99,.5); }  /* red bg */
-.qcell.q-issue .qdot { background: var(--red); }
+.qcell.q-issue .qdot { color: var(--red); }
 .qcell.q-issue .qtime { color: #ffc4c6; }
 
-/* legend */
+/* legend — glyph + label (each status carries a shape, not only a colour) */
 .legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 11px; font-size: 10px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 5px; }
-.legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.legend b { font-weight: 700; font-size: 11px; }
 
 /* annotation list */
 .ann-section { overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
@@ -410,33 +466,51 @@ input  { font-family: inherit; }
 .ann-row.src-ai.st-unreviewed { border-left-style: dashed; }
 .ann-row.st-accepted, .ann-row.st-added { border-left-color: var(--green); }
 .ann-row.st-corrected { border-left-color: var(--amber); }
-.ann-row.st-rejected  { border-left-color: var(--red); opacity: .6; }
-.ann-row.st-rejected .ann-type { text-decoration: line-through; }
+.ann-row.st-rejected  { border-left-color: var(--red); opacity: .62; }
+/* strike only the name, never the status tag or the element dot */
+.ann-row.st-rejected .ann-type .nm { text-decoration: line-through; text-decoration-color: rgba(255,93,99,.7); }
 
+/* neutral direction chip — colour is carried by the element dot, not this block */
 .ann-dir {
   width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
-  font-size: 17px; color: #0c0f14; font-weight: 700;
-  background: var(--amber);
+  font-size: 17px; color: #c2ccd9; font-weight: 700; flex: none;
+  background: #222a35; border: 1px solid var(--line);
 }
 .ann-main { min-width: 0; }
-.ann-type { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+.ann-type { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .ann-type .edot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.ann-sub { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 11px; color: var(--muted); }
-.ann-sub .tc { font-family: var(--ff-mono); }
-.src-tag { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; font-weight: 700; }
+.ann-type .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ann-type .src-tag { margin-left: auto; }   /* status tag sits top-right of the card */
+.ann-sub { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 11px; color: var(--muted); }
+.ann-sub .tc { font-family: var(--ff-mono); white-space: nowrap; }
+/* who accepted / corrected / rejected — sits at the right end of the detail line */
+.reviewer { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: var(--txt-2); white-space: nowrap; }
+.reviewer .rv-name { overflow: hidden; text-overflow: ellipsis; }
+.src-tag { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; border: 1px solid; font-weight: 700; white-space: nowrap; flex: none; }
 .src-tag.ai    { color: var(--cyan); border-color: rgba(56,209,230,.5); }
 .src-tag.human { color: var(--green); border-color: rgba(65,212,134,.5); }
 .src-tag.corrected { color: var(--amber); border-color: rgba(247,179,43,.5); }
 .src-tag.rejected  { color: var(--red); border-color: rgba(255,93,99,.5); }
 
 .ann-actions { display: flex; align-items: center; gap: 5px; }
+/* quiet outline-amber by default so the list doesn't become a column of loud
+   dots; goes full-chroma only on hover or when its row is selected */
 .ann-jump {
   width: 30px; height: 30px; border-radius: 50%;
-  background: linear-gradient(180deg,#ffd06a,var(--amber)); color: #1b1206;
-  border: 1px solid var(--amber-dk); display: grid; place-items: center;
-  box-shadow: 0 2px 8px rgba(247,179,43,.3);
+  background: none; color: var(--muted);
+  border: 1px solid var(--line); display: grid; place-items: center;
+  transition: transform .08s, background .1s, color .1s, border-color .1s;
 }
-.ann-jump:hover { filter: brightness(1.08); transform: scale(1.06); }
+.ann-jump:hover,
+.ann-row.selected .ann-jump {
+  background: linear-gradient(180deg,#ffd06a,var(--amber)); color: #1b1206;
+  border-color: var(--amber-dk); box-shadow: 0 2px 8px rgba(247,179,43,.3);
+}
+.ann-jump:hover { transform: scale(1.06); }
+/* rejected cards recede — their jump button stays neutral, never amber-filled */
+.ann-row.st-rejected .ann-jump { color: var(--muted); border-color: var(--line); }
+.ann-row.st-rejected .ann-jump:hover,
+.ann-row.st-rejected.selected .ann-jump { background: var(--panel-3); color: var(--txt); border-color: #3a4554; box-shadow: none; }
 .mini-btn {
   width: 28px; height: 28px; border-radius: var(--r-sm);
   background: var(--panel-3); border: 1px solid var(--line); color: var(--txt-2);
@@ -446,9 +520,20 @@ input  { font-family: inherit; }
 .mini-btn.ok:hover { color: var(--green); border-color: var(--green); }
 .mini-btn.no:hover { color: var(--red); border-color: var(--red); }
 
-/* AI verify inline bar */
-.ann-verify { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
-.ann-verify .lbl { font-size: 11px; color: var(--cyan); flex: 1; }
+/* AI verify inline bar — a full-width row of three equal-width buttons
+   (icon + label) so nothing is squashed or clipped */
+.ann-verify { grid-column: 1 / -1; display: flex; gap: 6px; margin-top: 9px; padding-top: 9px; border-top: 1px dashed var(--line); }
+.ann-verify .vbtn {
+  flex: 1; height: 30px; border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--panel-3); border: 1px solid var(--line); color: var(--txt-2);
+  font-size: 12px; font-weight: 600;
+}
+.ann-verify .vbtn:hover { color: var(--txt); border-color: #3a4554; }
+.ann-verify .vbtn.ok { color: var(--green); border-color: rgba(65,212,134,.4); }
+.ann-verify .vbtn.ok:hover { background: rgba(65,212,134,.12); border-color: var(--green); }
+.ann-verify .vbtn.no { color: var(--red); border-color: rgba(255,93,99,.4); }
+.ann-verify .vbtn.no:hover { background: rgba(255,93,99,.12); border-color: var(--red); }
 
 /* ============================ MODALS ====================================== */
 .modal-backdrop {

@@ -35,6 +35,15 @@
     <button class="icon-btn accent" id="btnShortcuts" title="Keyboard shortcuts (?)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 13h6"/></svg>
     </button>
+
+    <div class="user-menu">
+      <button class="user-btn" id="userBtn" aria-haspopup="true">
+        <span class="avatar" id="userAvatar">MT</span>
+        <span class="uname" id="userName">Mei Tan</span>
+        <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="user-dropdown" id="userDropdown"></div>
+    </div>
   </header>
 
   <!-- ============================ WORKSPACE =========================== -->
@@ -48,7 +57,7 @@
         <div class="spacer"></div>
         <div class="ai-progress" id="aiProgress"></div>
         <button class="btn" id="btnFlag" title="Flag an issue">⚑ Flag</button>
-        <button class="btn green" id="btnDone">Mark reviewed</button>
+        <button class="btn green-outline" id="btnDone">Mark reviewed</button>
       </div>
 
       <div class="video-wrap" id="videoWrap">
@@ -121,12 +130,12 @@
         </div>
         <div class="queue-grid" id="queueGrid"></div>
         <div class="legend">
-          <span><i style="border:2px solid #4a5566;background:transparent"></i> New</span>
-          <span><i style="background:var(--cyan)"></i> AI to verify</span>
-          <span><i style="background:var(--amber)"></i> In progress</span>
-          <span><i style="background:var(--green)"></i> Done</span>
-          <span><i style="background:var(--faint)"></i> Deferred</span>
-          <span><i style="background:var(--red)"></i> Issue</span>
+          <span><b style="color:#8693a4">○</b> New</span>
+          <span><b style="color:var(--cyan)">◆</b> AI to verify</span>
+          <span><b style="color:var(--amber)">◐</b> In progress</span>
+          <span><b style="color:var(--green)">✓</b> Done</span>
+          <span><b style="color:var(--faint)">☾</b> Deferred</span>
+          <span><b style="color:var(--red)">⚑</b> Issue</span>
         </div>
       </div>
 

@@ -10,6 +10,7 @@
   const DIR_BY_KEY = Object.fromEntries(D.DIRECTIONS.map(d => [d.key, d.id]));
   const DIR_BY_NUM = Object.fromEntries(D.DIRECTIONS.map(d => [d.num, d.id]));
   const ARROW_DIR  = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E' };
+  const USER_BY_ID = Object.fromEntries(D.USERS.map(u => [u.id, u]));
 
   const $ = id => document.getElementById(id);
   const el = {
@@ -36,18 +37,21 @@
     // shortcuts
     btnShortcuts: $('btnShortcuts'), scModal: $('shortcutsModal'), scClose: $('scClose'), scGrid: $('scGrid'),
     toastWrap: $('toast-wrap'),
+    // user menu
+    userBtn: $('userBtn'), userName: $('userName'), userAvatar: $('userAvatar'), userDropdown: $('userDropdown'),
   };
 
   const state = {
     selectedVideoId: D.DEFAULT_VIDEO_ID,
     selectedAnnId: null,
+    currentUserId: D.CURRENT_USER_ID,
     duration: 0,
     timesReady: false,
     recording: null,                          // { startSec }
     recentTypeIds: ['fire-dragon', 'water-penguin'],
     activeModal: null,                        // 'annotate' | 'shortcuts'
     draft: null,                              // annotation being created / edited
-    armHintHidden: false,
+    userMenuOpen: false,
     speeds: [1, 0.5, 0.25],
     speedIdx: 0,
   };
@@ -86,6 +90,11 @@
   const STATUS_LABEL = {
     issue: 'Issue', deferred: 'Deferred', done: 'Reviewed',
     needs_review: 'AI to verify', in_progress: 'In progress', unannotated: 'Not annotated',
+  };
+  /* distinct SHAPE per status so it reads without relying on colour */
+  const STATUS_GLYPH = {
+    unannotated: '○', needs_review: '◆', in_progress: '◐',
+    done: '✓', deferred: '☾', issue: '⚑',
   };
   const unreviewedAI = v => v.annotations.filter(a => a.source === 'ai' && a.status === 'unreviewed');
   const allAI        = v => v.annotations.filter(a => a.source === 'ai');
@@ -139,6 +148,8 @@
     el.btnFlag.classList.toggle('danger', v.flagged);
 
     el.btnDone.textContent = v.reviewed ? '✓ Reviewed' : 'Mark reviewed';
+    // filled green only reflects the DONE state; otherwise a green-accented ghost
+    el.btnDone.className = 'btn ' + (v.reviewed ? 'green' : 'green-outline');
     el.btnDone.disabled = left > 0;
     el.btnDone.title = left > 0 ? 'Verify all ' + left + ' AI annotation(s) first' : 'Confirm the clip is fully reviewed';
   }
@@ -158,7 +169,7 @@
       if (st === 'deferred') meta = 'snoozed';
       if (st === 'issue') meta = 'flagged';
       c.innerHTML =
-        '<span class="qdot"></span>' +
+        '<span class="qdot">' + STATUS_GLYPH[st] + '</span>' +
         '<span class="qtime">' + v.slot + '</span>' +
         '<span class="qmeta">' + meta + '</span>';
       c.title = v.id + ' · ' + STATUS_LABEL[st];
@@ -167,11 +178,23 @@
   }
 
   function srcTag(a) {
-    if (a.status === 'rejected')  return '<span class="src-tag rejected">False positive</span>';
+    if (a.status === 'rejected')  return '<span class="src-tag rejected">Rejected</span>';
     if (a.status === 'corrected') return '<span class="src-tag corrected">Corrected</span>';
-    if (a.source === 'ai' && a.status === 'accepted') return '<span class="src-tag human">AI · kept</span>';
-    if (a.source === 'ai') return '<span class="src-tag ai">AI</span>';
+    if (a.source === 'ai') return '<span class="src-tag ai">AI</span>';   // accepted & unreviewed both read "AI"
     return '<span class="src-tag human">You</span>';
+  }
+  /* neutral initials avatar — kept colourless so reviewers don't add a 5th hue */
+  function avatar(user, sm) {
+    return '<span class="avatar' + (sm ? ' sm' : '') + '">' + user.initials + '</span>';
+  }
+  /* attribution chip: who accepted / corrected / rejected this annotation */
+  function reviewerChip(a) {
+    if (!a.by || a.status === 'unreviewed') return '';
+    if (!['accepted', 'corrected', 'rejected'].includes(a.status)) return '';
+    const u = USER_BY_ID[a.by]; if (!u) return '';
+    return '<span class="reviewer" title="' +
+      (a.status === 'rejected' ? 'Rejected by ' : a.status === 'corrected' ? 'Corrected by ' : 'Accepted by ') +
+      u.name + '">' + avatar(u, true) + '<span class="rv-name">' + u.name + '</span></span>';
   }
 
   function renderAnnList() {
@@ -193,25 +216,40 @@
       row.className = 'ann-row src-' + a.source + ' st-' + a.status + (a.id === state.selectedAnnId ? ' selected' : '');
       row.dataset.id = a.id;
       const isUnrev = a.source === 'ai' && a.status === 'unreviewed';
+      const rejected = a.status === 'rejected';
+
+      // neutral chip everywhere — direction is read from the arrow shape, and the
+      // element hue lives only on the dot by the name (one taxonomy cue per card)
+      const dirChip = '<div class="ann-dir">' + (dir.arrow || '?') + '</div>';
+
+      let actions = '<button class="ann-jump" data-act="jump" title="Jump to entry (Enter)">◎</button>';
+      if (!isUnrev) {
+        if (rejected) {
+          // a false positive isn't editable — offer recovery (Restore) + remove
+          actions += '<button class="mini-btn ok" data-act="restore" title="Restore as a real imp">↺</button>' +
+                     '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+        } else {
+          actions += '<button class="mini-btn" data-act="edit" title="Edit (E)">✎</button>' +
+                     '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+        }
+      }
+
       row.innerHTML =
-        '<div class="ann-dir" style="background:' + (a.status === 'rejected' ? '#3a3030' : elemColor(a.typeId)) + '">' + (dir.arrow || '?') + '</div>' +
+        dirChip +
         '<div class="ann-main">' +
-          '<div class="ann-type"><span class="edot" style="background:' + elemColor(a.typeId) + '"></span>' + (t ? t.name : '—') + '</div>' +
-          '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span> · ' + (dir.label || '') + ' ' + srcTag(a) + '</div>' +
+          '<div class="ann-type">' +
+            '<span class="edot" style="background:' + elemColor(a.typeId) + '"></span>' +
+            '<span class="nm">' + (t ? t.name : '—') + '</span>' +
+            srcTag(a) +
+          '</div>' +
+          '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span> · ' + (dir.label || '') + reviewerChip(a) + '</div>' +
         '</div>' +
-        '<div class="ann-actions">' +
-          '<button class="ann-jump" data-act="jump" title="Jump to entry">◎</button>' +
-          (isUnrev ? '' :
-            '<button class="mini-btn" data-act="edit" title="Edit (E)">✎</button>' +
-            '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>') +
-          (a.status === 'rejected' ? '<button class="mini-btn ok" data-act="restore" title="Restore">↺</button>' : '') +
-        '</div>' +
+        '<div class="ann-actions">' + actions + '</div>' +
         (isUnrev ?
           '<div class="ann-verify">' +
-            '<span class="lbl">AI says this is real — verify:</span>' +
-            '<button class="mini-btn ok" data-act="accept" title="Accept (Y)">✓ Accept</button>' +
-            '<button class="btn ghost" data-act="correct" title="Correct (E)">Correct</button>' +
-            '<button class="mini-btn no" data-act="reject" title="Reject (N)">✕ Reject</button>' +
+            '<button class="vbtn ok" data-act="accept" title="Accept (Y)">✓ Accept</button>' +
+            '<button class="vbtn" data-act="correct" title="Correct (E)">Correct</button>' +
+            '<button class="vbtn no" data-act="reject" title="Reject (N)">✕ Reject</button>' +
           '</div>' : '');
       el.annList.appendChild(row);
     });
@@ -429,7 +467,8 @@
     if (d.mode === 'create') {
       v.annotations.push({
         id: uid(), startSec: d.startSec, endSec: d.endSec,
-        typeId: d.typeId, direction: d.direction, source: 'human', status: 'added', aiLabel: null,
+        typeId: d.typeId, direction: d.direction, source: 'human', status: 'added',
+        aiLabel: null, by: state.currentUserId,
       });
       state.selectedAnnId = v.annotations[v.annotations.length - 1].id;
       toast({ text: 'Annotation added', variant: 'good' });
@@ -439,6 +478,7 @@
         a.startSec = d.startSec; a.endSec = d.endSec;
         a.typeId = d.typeId; a.direction = d.direction;
         if (a.source === 'ai') a.status = 'corrected';   // keep aiLabel as the original
+        a.by = state.currentUserId;
         state.selectedAnnId = a.id;
       }
       toast({ text: d.mode === 'correct' ? 'AI annotation corrected' : 'Annotation updated', variant: 'good' });
@@ -454,19 +494,20 @@
   function findAnn(id) { return currentVideo().annotations.find(a => a.id === id); }
   function acceptAI(id) {
     const a = findAnn(id); if (!a) return;
-    a.status = 'accepted'; addRecent(a.typeId);
+    a.status = 'accepted'; a.by = state.currentUserId; addRecent(a.typeId);
     toast({ text: 'AI annotation accepted', variant: 'good' });
     render();
   }
   function rejectAI(id) {
     const a = findAnn(id); if (!a) return;
-    a.status = 'rejected';
+    a.status = 'rejected'; a.by = state.currentUserId;
     toast({ text: 'Marked false positive — kept as a training signal', variant: 'danger' });
     render();
   }
   function restoreAnn(id) {
     const a = findAnn(id); if (!a) return;
-    a.status = a.source === 'ai' ? 'unreviewed' : 'added';
+    if (a.source === 'ai') { a.status = 'unreviewed'; a.by = null; }
+    else a.status = 'added';
     render();
   }
   function editAnn(id) {
@@ -538,6 +579,28 @@
     });
   }
 
+  /* ============================ USER MENU ================================ */
+  function renderUser() {
+    const u = USER_BY_ID[state.currentUserId];
+    el.userAvatar.textContent = u.initials;
+    el.userName.textContent = u.name;
+    el.userDropdown.innerHTML =
+      '<div class="ud-head">Reviewing as</div>' +
+      D.USERS.map(x =>
+        '<button class="user-item' + (x.id === state.currentUserId ? ' current' : '') + '" data-user="' + x.id + '">' +
+          avatar(x) +
+          '<span class="ui-meta"><span class="ui-name">' + x.name + '</span><span class="ui-role">' + x.role + '</span></span>' +
+          (x.id === state.currentUserId ? '<span class="ui-check">✓</span>' : '') +
+        '</button>').join('');
+  }
+  function openUserMenu()  { state.userMenuOpen = true;  el.userDropdown.classList.add('open'); }
+  function closeUserMenu() { state.userMenuOpen = false; el.userDropdown.classList.remove('open'); }
+  function selectUser(id) {
+    state.currentUserId = id;
+    closeUserMenu(); renderUser();
+    toast({ text: 'Now reviewing as ' + USER_BY_ID[id].name });
+  }
+
   /* ============================ SHORTCUTS MODAL ========================== */
   const SHORTCUTS = [
     ['Playback', [
@@ -603,6 +666,7 @@
       if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeShortcuts(); }
       return;
     }
+    if (state.userMenuOpen && e.key === 'Escape') { e.preventDefault(); closeUserMenu(); return; }
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
       if (ae === el.recordSearch) {
@@ -754,6 +818,15 @@
     el.scClose.onclick = closeShortcuts;
     el.scModal.addEventListener('click', e => { if (e.target === el.scModal) closeShortcuts(); });
 
+    // user menu
+    el.userBtn.onclick = e => { e.stopPropagation(); state.userMenuOpen ? closeUserMenu() : openUserMenu(); };
+    el.userDropdown.addEventListener('click', e => {
+      const it = e.target.closest('[data-user]'); if (it) selectUser(it.dataset.user);
+    });
+    document.addEventListener('click', e => {
+      if (state.userMenuOpen && !e.target.closest('.user-menu')) closeUserMenu();
+    });
+
     // annotate modal interactions
     el.anClose.onclick = closeAnnotate;
     el.anCancel.onclick = closeAnnotate;
@@ -788,6 +861,7 @@
     el.anDirpad.tabIndex = 0;
     el.video.src = currentVideo().src;
     wire();
+    renderUser();
     render();
     requestAnimationFrame(rafLoop);
   }
