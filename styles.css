@@ -2210,6 +2210,28 @@ input {
   align-items: center;
 }
 
+/* floating tooltip (body-level so it is never clipped by scrolling panels) */
+.float-tip {
+  position: fixed;
+  z-index: 250;
+  display: none;
+  max-width: 230px;
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--txt-2);
+  pointer-events: none;
+}
+
+.float-tip.show {
+  display: block;
+  animation: fade .12s ease;
+}
+
 .toast {
   display: flex;
   align-items: center;

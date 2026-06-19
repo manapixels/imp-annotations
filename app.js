@@ -37,7 +37,7 @@
     anAiDiff: $('anAiDiff'), anCancel: $('anCancel'), anCreate: $('anCreate'),
     // shortcuts
     btnShortcuts: $('btnShortcuts'), scModal: $('shortcutsModal'), scClose: $('scClose'), scGrid: $('scGrid'),
-    toastWrap: $('toast-wrap'),
+    toastWrap: $('toast-wrap'), floatTip: $('floatTip'),
     // user menu
     userBtn: $('userBtn'), userName: $('userName'), userAvatar: $('userAvatar'), userDropdown: $('userDropdown'),
   };
@@ -260,7 +260,12 @@
   function srcTag(a) {
     if (a.status === 'rejected') return '<span class="src-tag rejected">Rejected</span>';
     if (a.status === 'corrected') return '<span class="src-tag corrected">Corrected</span>';
-    if (a.source === 'ai') return '<span class="src-tag ai">AI</span>';   // accepted & unreviewed both read "AI"
+    if (a.source === 'ai') {
+      const tip = a.status === 'unreviewed'
+        ? 'Annotated by AI — pending manual review by a human.'
+        : 'Annotated by AI — already reviewed.';
+      return '<span class="src-tag ai" data-tip="' + tip + '">AI</span>';
+    }
     return '<span class="src-tag human">You</span>';
   }
   /* neutral initials avatar — kept colourless so reviewers don't add a 5th hue */
@@ -727,6 +732,19 @@
     if (!opts.persist) setTimeout(() => { if (toastEl === t) clearToast(); }, opts.timeout || 3800);
   }
 
+  /* ===================== FLOATING TOOLTIP ([data-tip]) ================== */
+  function showTip(target, text) {
+    el.floatTip.textContent = text;
+    el.floatTip.classList.add('show');
+    const r = target.getBoundingClientRect(), tr = el.floatTip.getBoundingClientRect();
+    let left = clamp(r.left + r.width / 2 - tr.width / 2, 8, window.innerWidth - tr.width - 8);
+    let top = r.top - tr.height - 8;
+    if (top < 8) top = r.bottom + 8;                 // flip below if no room above
+    el.floatTip.style.left = left + 'px';
+    el.floatTip.style.top = top + 'px';
+  }
+  function hideTip() { el.floatTip.classList.remove('show'); }
+
   /* ============================ KEYBOARD ================================= */
   function onKeyDown(e) {
     if (state.activeModal === 'annotate') return onAnnotateKey(e);
@@ -970,6 +988,15 @@
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
       if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
     });
+
+    // floating tooltips for any [data-tip] element
+    document.body.addEventListener('mouseover', e => {
+      const t = e.target.closest('[data-tip]'); if (t) showTip(t, t.getAttribute('data-tip'));
+    });
+    document.body.addEventListener('mouseout', e => {
+      if (e.target.closest('[data-tip]')) hideTip();
+    });
+    window.addEventListener('scroll', hideTip, true);   // capture nested scrolls
 
     // annotate modal interactions
     el.anClose.onclick = closeAnnotate;
