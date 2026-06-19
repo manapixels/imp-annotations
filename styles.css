@@ -1150,21 +1150,25 @@ input {
 .transport .arm-btn {}
 
 /* skip-amount dropdown */
-.skip-wrap {
+.skip-wrap,
+.speed-wrap {
   position: relative;
   display: inline-flex;
 }
 
-#skipBtn b {
+#skipBtn b,
+#speedBtn b {
   color: var(--txt);
   font-weight: 700;
 }
 
-#skipBtn .cv {
+#skipBtn .cv,
+#speedBtn .cv {
   color: var(--muted);
 }
 
-.skip-menu {
+.skip-menu,
+.speed-menu {
   position: absolute;
   bottom: 38px;
   left: 0;
@@ -1178,12 +1182,13 @@ input {
   padding: 5px;
 }
 
-.skip-menu.open {
+.skip-menu.open,
+.speed-menu.open {
   display: block;
   animation: rise .12s ease;
 }
 
-.skip-menu .sm-head {
+.sm-head {
   font-family: var(--ff-mono);
   font-size: 10px;
   letter-spacing: .08em;
