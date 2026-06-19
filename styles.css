@@ -750,6 +750,14 @@ input {
   filter: brightness(1.05);
 }
 
+/* keycaps inside a filled (amber/green) button: dark so they read on the bright bg */
+.btn.primary .kbd,
+.btn.green .kbd {
+  color: #2a1e06;
+  border-color: rgba(27, 18, 6, .4);
+  background: rgba(0, 0, 0, .08);
+}
+
 /* filled green = the "done" STATE (only after a clip is reviewed), never a CTA */
 .btn.green {
   background: linear-gradient(180deg, #5ee39a, var(--green));

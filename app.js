@@ -477,14 +477,14 @@
     el.recBadge.classList.add('on');
     el.tlRecording.classList.add('on');
     el.armPrompt.classList.add('hide');
-    el.btnArm.innerHTML = '<span class="kbd kbd-amber">A</span> Mark imp exit';
+    el.btnArm.innerHTML = 'Mark imp exit <span class="kbd kbd-amber">A</span>';
     el.btnArm.classList.add('green'); el.btnArm.classList.remove('primary');
   }
   function clearRecordingUI() {
     state.recording = null;
     el.recBadge.classList.remove('on');
     el.tlRecording.classList.remove('on');
-    el.btnArm.innerHTML = '<span class="kbd kbd-amber">A</span> Mark imp entry';
+    el.btnArm.innerHTML = 'Mark imp entry <span class="kbd kbd-amber">A</span>';
     el.btnArm.classList.add('primary'); el.btnArm.classList.remove('green');
   }
   function cancelRecording() {
