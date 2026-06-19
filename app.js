@@ -23,9 +23,9 @@
     btnPlay: $('btnPlay'), playIcon: $('playIcon'), curTime: $('curTime'), durTime: $('durTime'),
     btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'), btnStep: $('btnStep'),
     btnMute: $('btnMute'), btnArm: $('btnArm'),
-    queueGrid: $('queueGrid'), queueCount: $('queueCount'),
+    queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
     annList: $('annList'), annCount: $('annCount'),
-    dateLabel: $('dateLabel'), datePrev: $('datePrev'), dateNext: $('dateNext'),
+    dateBtn: $('dateBtn'), dateLabel: $('dateLabel'), todayBadge: $('todayBadge'), dateMeta: $('dateMeta'), calendar: $('calendar'),
     recordSearch: $('recordSearch'),
     // annotate modal
     anModal: $('annotateModal'), anTitle: $('anTitle'), anClose: $('anClose'),
@@ -42,9 +42,13 @@
   };
 
   const state = {
-    selectedVideoId: D.DEFAULT_VIDEO_ID,
+    selectedDate: D.TODAY_ISO,
+    selectedVideoId: null,                    // set on boot from the day's queue
     selectedAnnId: null,
     currentUserId: D.CURRENT_USER_ID,
+    calMonth: null,                           // { y, m } shown in the date picker
+    calendarOpen: false,
+    issuesOnly: false,
     duration: 0,
     timesReady: false,
     recording: null,                          // { startSec }
@@ -77,25 +81,34 @@
   let _uid = 1;
   const uid = () => 'h' + (Date.now()) + '-' + (_uid++);
 
-  /* Derive the display status (priority: issue > deferred > done > derived). */
+  /* Every clip is AI-tagged on arrival; status reflects the HUMAN review state.
+     new = not looked at yet · in_progress = some AI tags verified, not finished. */
   function statusOf(v) {
     if (v.flagged) return 'issue';
     if (v.deferred) return 'deferred';
     if (v.reviewed) return 'done';
-    const unrev = v.annotations.some(a => a.source === 'ai' && a.status === 'unreviewed');
-    if (unrev) return 'needs_review';
-    if (v.annotations.length) return 'in_progress';
-    return 'unannotated';
+    if (v.annotations.some(a => a.status !== 'unreviewed')) return 'in_progress';
+    return 'new';
   }
+  const unresolvedIssue = v => statusOf(v) === 'issue';   // flagged & not yet reviewed
   const STATUS_LABEL = {
     issue: 'Issue', deferred: 'Deferred', done: 'Reviewed',
-    needs_review: 'AI to verify', in_progress: 'In progress', unannotated: 'Not annotated',
+    in_progress: 'In progress', new: 'New',
   };
   /* distinct SHAPE per status so it reads without relying on colour */
-  const STATUS_GLYPH = {
-    unannotated: '○', needs_review: '◆', in_progress: '◐',
-    done: '✓', deferred: '☾', issue: '⚑',
-  };
+  const STATUS_GLYPH = { new: '○', in_progress: '◐', done: '✓', deferred: '☾', issue: '⚑' };
+
+
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDate(iso) {
+    const p = iso.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
+    return WEEKDAYS[d.getDay()] + ' ' + p[2] + ' ' + MONTHS_SHORT[p[1] - 1] + ' ' + p[0];
+  }
+  const dayVideos = iso => D.VIDEOS.filter(v => v.date === iso);
+  const dayHasData = iso => D.VIDEOS.some(v => v.date === iso);
+  const dayHasIssue = iso => D.VIDEOS.some(v => v.date === iso && unresolvedIssue(v));
   const unreviewedAI = v => v.annotations.filter(a => a.source === 'ai' && a.status === 'unreviewed');
   const allAI        = v => v.annotations.filter(a => a.source === 'ai');
 
@@ -155,19 +168,32 @@
   }
 
   function renderQueue() {
-    const done = D.VIDEOS.filter(v => statusOf(v) === 'done').length;
-    el.queueCount.textContent = done + ' / ' + D.VIDEOS.length + ' done';
+    const day = dayVideos(state.selectedDate);
+    const issues = day.filter(unresolvedIssue);
+
+    // issues filter toggle (replaces the old "done" counter)
+    el.issuesCount.textContent = issues.length;
+    el.issuesToggle.classList.toggle('active', state.issuesOnly);
+    el.issuesToggle.classList.toggle('has-issues', issues.length > 0);
+    if (!issues.length && state.issuesOnly) state.issuesOnly = false;   // nothing to show
+
+    const list = state.issuesOnly ? issues : day;
     el.queueGrid.innerHTML = '';
-    D.VIDEOS.forEach(v => {
+    if (!list.length) {
+      el.queueGrid.innerHTML = '<div class="queue-empty">' +
+        (state.issuesOnly ? 'No open issues on this day.' : 'No recordings for this day.') + '</div>';
+      return;
+    }
+    list.forEach(v => {
       const st = statusOf(v);
       const c = document.createElement('button');
       c.className = 'qcell q-' + st + (v.id === state.selectedVideoId ? ' selected' : '');
       c.dataset.id = v.id;
       const n = v.annotations.length, left = unreviewedAI(v).length;
-      let meta = n ? (n + ' imp' + (n > 1 ? 's' : '')) : 'empty';
-      if (left) meta = left + ' to verify';
+      let meta = n ? (n + ' imp' + (n > 1 ? 's' : '')) : 'no imps';
+      if (st === 'in_progress') meta = left ? left + ' AI left' : 'in review';
       if (st === 'deferred') meta = 'snoozed';
-      if (st === 'issue') meta = 'flagged';
+      if (st === 'issue') meta = 'needs help';
       c.innerHTML =
         '<span class="qdot">' + STATUS_GLYPH[st] + '</span>' +
         '<span class="qtime">' + v.slot + '</span>' +
@@ -175,6 +201,66 @@
       c.title = v.id + ' · ' + STATUS_LABEL[st];
       el.queueGrid.appendChild(c);
     });
+  }
+
+  /* ---- date bar + calendar picker --------------------------------------- */
+  function renderDateBar() {
+    el.dateLabel.textContent = fmtDate(state.selectedDate);
+    el.todayBadge.style.display = state.selectedDate === D.TODAY_ISO ? '' : 'none';
+    const n = dayVideos(state.selectedDate).length;
+    el.dateMeta.textContent = n + ' recording' + (n === 1 ? '' : 's') + ' · one every 15 min';
+    el.dateBtn.classList.toggle('open', state.calendarOpen);
+  }
+
+  function renderCalendar() {
+    const { y, m } = state.calMonth;
+    const first = new Date(y, m, 1), startDow = first.getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    let html = '<div class="cal-head">' +
+      '<button class="cal-nav" data-cal="prev" title="Previous month">‹</button>' +
+      '<span class="cal-title">' + MONTHS[m] + ' ' + y + '</span>' +
+      '<button class="cal-nav" data-cal="next" title="Next month">›</button></div>' +
+      '<div class="cal-grid">';
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(d => html += '<span class="cal-dow">' + d + '</span>');
+    for (let i = 0; i < startDow; i++) html += '<span class="cal-cell empty"></span>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const has = dayHasData(iso), cls = ['cal-cell'];
+      if (!has) cls.push('no-data');
+      if (dayHasIssue(iso)) cls.push('has-issue');
+      if (iso === state.selectedDate) cls.push('selected');
+      if (iso === D.TODAY_ISO) cls.push('today');
+      html += '<button class="' + cls.join(' ') + '"' + (has ? '' : ' disabled') + ' data-date="' + iso + '">' + d + '</button>';
+    }
+    html += '</div><div class="cal-foot"><span class="ci"><b>⚑</b> day has unresolved issues</span></div>';
+    el.calendar.innerHTML = html;
+  }
+  function openCalendar() {
+    state.calendarOpen = true;
+    const p = state.selectedDate.split('-').map(Number);
+    state.calMonth = { y: p[0], m: p[1] - 1 };
+    renderCalendar();
+    el.calendar.classList.add('open');
+    renderDateBar();
+  }
+  function closeCalendar() { state.calendarOpen = false; el.calendar.classList.remove('open'); renderDateBar(); }
+  function shiftCalMonth(delta) {
+    let { y, m } = state.calMonth; m += delta;
+    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+    state.calMonth = { y, m }; renderCalendar();
+  }
+  function pickDefaultForDate(iso) {
+    const day = dayVideos(iso);
+    return day.find(unresolvedIssue) || day.find(v => statusOf(v) === 'new') || day[0] || null;
+  }
+  function setDate(iso) {
+    if (!dayHasData(iso)) return;
+    state.selectedDate = iso;
+    state.selectedAnnId = null;
+    closeCalendar();
+    const v = pickDefaultForDate(iso);
+    if (v) selectVideo(v.id); else { state.selectedVideoId = null; render(); }
+    renderDateBar();
   }
 
   function srcTag(a) {
@@ -667,6 +753,7 @@
       return;
     }
     if (state.userMenuOpen && e.key === 'Escape') { e.preventDefault(); closeUserMenu(); return; }
+    if (state.calendarOpen && e.key === 'Escape') { e.preventDefault(); closeCalendar(); return; }
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
       if (ae === el.recordSearch) {
@@ -809,9 +896,16 @@
       }
     });
 
-    // date nav (demo has one date)
-    const noDate = () => toast({ text: 'This demo only includes 18 Jun 2026' });
-    el.datePrev.onclick = noDate; el.dateNext.onclick = noDate;
+    // date picker
+    el.dateBtn.onclick = e => { e.stopPropagation(); state.calendarOpen ? closeCalendar() : openCalendar(); };
+    el.calendar.addEventListener('click', e => {
+      e.stopPropagation();
+      const nav = e.target.closest('[data-cal]'); if (nav) { shiftCalMonth(nav.dataset.cal === 'next' ? 1 : -1); return; }
+      const cell = e.target.closest('[data-date]'); if (cell && !cell.disabled) setDate(cell.dataset.date);
+    });
+
+    // issues-only filter
+    el.issuesToggle.onclick = () => { state.issuesOnly = !state.issuesOnly; renderQueue(); };
 
     // shortcuts modal
     el.btnShortcuts.onclick = openShortcuts;
@@ -825,6 +919,7 @@
     });
     document.addEventListener('click', e => {
       if (state.userMenuOpen && !e.target.closest('.user-menu')) closeUserMenu();
+      if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
     });
 
     // annotate modal interactions
@@ -856,12 +951,17 @@
     normalizeSeedStatuses();
     buildShortcuts();
     checkSize();
+    const p = state.selectedDate.split('-').map(Number);
+    state.calMonth = { y: p[0], m: p[1] - 1 };
+    const def = pickDefaultForDate(state.selectedDate);
+    state.selectedVideoId = def ? def.id : (D.VIDEOS[0] || {}).id;
     el.video.muted = true;
     el.video.loop = true;
     el.anDirpad.tabIndex = 0;
     el.video.src = currentVideo().src;
     wire();
     renderUser();
+    renderDateBar();
     render();
     requestAnimationFrame(rafLoop);
   }

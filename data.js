@@ -82,9 +82,10 @@ function human(f0, f1, typeId, direction) {
            by: CURRENT_USER_ID };
 }
 
-/* Per-video specs. status is the *stored* lifecycle state for the demo:
-   unannotated | needs_review | in_progress | done | deferred | issue        */
-const VIDEO_SPECS = [
+/* Today's curated queue. Every recording arrives already AI-tagged; the stored
+   status only seeds the done/deferred/issue flags — new vs in_progress is derived
+   from whether a human has touched the AI annotations yet (see app.js statusOf). */
+const TODAY_SPECS = [
   { slot: '08:00', status: 'done', anns: [
       Object.assign(ai(0.06, 0.13, 'fire-dragon', 'E'),  { status: 'accepted', by: 'u-arjun' }),
       Object.assign(ai(0.40, 0.47, 'water-penguin', 'NE'), { status: 'corrected', typeId: 'water-serpent', direction: 'N', by: 'u-sofia' }),
@@ -100,19 +101,19 @@ const VIDEO_SPECS = [
       Object.assign(ai(0.30, 0.44, 'fire-bazooka', 'N'), { status: 'unreviewed' }),
   ]},
   /* default selected: a fresh AI pre-pass to verify */
-  { slot: '08:45', status: 'needs_review', anns: [
+  { slot: '08:45', status: 'new', anns: [
       ai(0.05, 0.12, 'fire-dragon', 'E'),
       ai(0.21, 0.29, 'water-penguin', 'NE'),
       ai(0.36, 0.42, 'shadow-bat', 'S'),
       ai(0.58, 0.69, 'air-falcon', 'W'),
       human(0.82, 0.90, 'spark-hornet', 'SE'),
   ]},
-  { slot: '09:00', status: 'needs_review', anns: [
+  { slot: '09:00', status: 'new', anns: [
       ai(0.12, 0.20, 'earth-golem', 'HOVER'),
       ai(0.47, 0.54, 'fire-phoenix', 'NE'),
       ai(0.70, 0.78, 'water-jelly', 'SW'),
   ]},
-  { slot: '09:15', status: 'unannotated', anns: [] },
+  { slot: '09:15', status: 'new', anns: [] },
   { slot: '09:30', status: 'in_progress', anns: [
       Object.assign(ai(0.10, 0.18, 'air-cyclone', 'E'), { status: 'accepted', by: 'u-kenji' }),
       ai(0.44, 0.52, 'shadow-wraith', 'W'),
@@ -122,54 +123,109 @@ const VIDEO_SPECS = [
       ai(0.25, 0.33, 'fire-thrasher', 'SE'),
       ai(0.60, 0.68, 'water-kraken', 'S'),
   ]},
-  { slot: '10:00', status: 'needs_review', anns: [
+  { slot: '10:00', status: 'new', anns: [
       ai(0.08, 0.15, 'earth-mole', 'HOVER'),
       ai(0.33, 0.41, 'air-moth', 'NE'),
       ai(0.77, 0.85, 'fire-tortoise', 'W'),
   ]},
-  { slot: '10:15', status: 'unannotated', anns: [] },
+  { slot: '10:15', status: 'new', anns: [] },
   { slot: '10:30', status: 'done', anns: [
       Object.assign(ai(0.20, 0.28, 'shadow-panther', 'E'), { status: 'accepted', by: 'u-sofia' }),
       human(0.55, 0.63, 'spark-hornet', 'N'),
   ]},
   { slot: '10:45', status: 'deferred', anns: [] },
-  { slot: '11:00', status: 'needs_review', anns: [
+  { slot: '11:00', status: 'new', anns: [
       ai(0.14, 0.22, 'earth-boulder', 'SW'),
       ai(0.50, 0.58, 'fire-dragon', 'NE'),
   ]},
-  { slot: '11:15', status: 'unannotated', anns: [] },
+  { slot: '11:15', status: 'new', anns: [] },
   { slot: '11:30', status: 'issue', flagged: true,
     flagNote: 'Two imps overlap heavily 0:30–0:55 — second opinion requested.',
     anns: [
       Object.assign(ai(0.28, 0.50, 'water-serpent', 'E'), { status: 'unreviewed' }),
       ai(0.34, 0.55, 'fire-phoenix', 'NE'),
   ]},
-  { slot: '11:45', status: 'needs_review', anns: [
+  { slot: '11:45', status: 'new', anns: [
       ai(0.18, 0.26, 'air-wisp', 'W'),
       ai(0.62, 0.70, 'earth-beetle', 'S'),
   ]},
-  { slot: '12:00', status: 'unannotated', anns: [] },
-  { slot: '12:15', status: 'unannotated', anns: [] },
+  { slot: '12:00', status: 'new', anns: [] },
+  { slot: '12:15', status: 'new', anns: [] },
 ];
 
-/* Build the video objects + give every annotation a stable id. */
-const VIDEOS = VIDEO_SPECS.map(function (spec, vi) {
-  const id = 'imp-rec-' + String(2401 + vi);
-  const annotations = (spec.anns || []).map(function (a, ai2) {
-    return Object.assign({ id: id + '-a' + ai2 }, a);
+/* ---- dates are relative to the real "today" so the queue is always current -- */
+function isoLocal(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function dayDate(daysAgo) {
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - daysAgo); return d;
+}
+const TODAY_ISO = isoLocal(dayDate(0));
+
+/* ---- generator for past days: mostly reviewed, with a few open issues ------- */
+function slotAt(i) {
+  const t = 8 * 60 + i * 15;
+  return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}
+const G_TYPES = ['fire-dragon', 'water-penguin', 'shadow-bat', 'air-falcon', 'earth-golem',
+                 'spark-hornet', 'fire-phoenix', 'water-serpent', 'air-cyclone', 'earth-mole'];
+const G_DIRS  = ['E', 'NE', 'S', 'W', 'N', 'SE', 'SW', 'HOVER', 'NW', 'E'];
+const G_USERS = ['u-mei', 'u-arjun', 'u-sofia', 'u-kenji'];
+
+function genDay(count, opts) {
+  opts = opts || {};
+  const issue = new Set(opts.issueIdx || []);
+  const deferred = new Set(opts.deferredIdx || []);
+  const empty = new Set(opts.emptyIdx || []);
+  const specs = [];
+  for (let i = 0; i < count; i++) {
+    const slot = slotAt(i), t1 = G_TYPES[i % G_TYPES.length], d1 = G_DIRS[i % G_DIRS.length];
+    if (issue.has(i)) {
+      specs.push({ slot: slot, status: 'issue', flagged: true,
+        flagNote: opts.note || 'Flagged by an earlier reviewer — still unresolved.',
+        anns: [ ai(0.22, 0.32, t1, d1) ] });                  // unreviewed = still open
+    } else if (deferred.has(i)) {
+      specs.push({ slot: slot, status: 'deferred', anns: [ ai(0.30, 0.40, t1, d1) ] });
+    } else if (empty.has(i)) {
+      specs.push({ slot: slot, status: 'done', anns: [] });   // AI found nothing; human confirmed
+    } else {
+      const anns = [ Object.assign(ai(0.10, 0.18, t1, d1), { status: 'accepted', by: G_USERS[i % 4] }) ];
+      if (i % 2 === 0) anns.push(Object.assign(
+        ai(0.48, 0.57, G_TYPES[(i + 3) % G_TYPES.length], G_DIRS[(i + 2) % G_DIRS.length]),
+        { status: 'accepted', by: G_USERS[(i + 2) % 4] }));
+      specs.push({ slot: slot, status: 'done', anns: anns });
+    }
+  }
+  return specs;
+}
+
+/* Today + recent past days. A couple of past days keep UNRESOLVED issues so the
+   reviewer can be sent back through the date picker to clean them up. */
+const DAY_BUILD = [
+  { daysAgo: 0, specs: TODAY_SPECS },
+  { daysAgo: 1, specs: genDay(12, { issueIdx: [7], note: 'Imp lost behind lens glare 0:30–0:50 — confirm the exit.' }) },
+  { daysAgo: 2, specs: genDay(10, {}) },                                                  // all clear
+  { daysAgo: 3, specs: genDay(11, { issueIdx: [3, 9], deferredIdx: [5], note: 'Two imps overlap — needs a second opinion.' }) },
+  { daysAgo: 4, specs: genDay(9,  { deferredIdx: [2] }) },                                // no issues
+];
+
+/* Flatten into the video list, stamping the real date + stable ids. */
+const VIDEOS = [];
+var _vc = 0;
+DAY_BUILD.forEach(function (day) {
+  const date = isoLocal(dayDate(day.daysAgo));
+  day.specs.forEach(function (spec) {
+    const id = 'imp-rec-' + String(1001 + _vc++);
+    const annotations = (spec.anns || []).map(function (a, ai2) {
+      return Object.assign({ id: id + '-a' + ai2 }, a);
+    });
+    VIDEOS.push({
+      id: id, date: date, slot: spec.slot,
+      durationLabel: '15:00', src: 'public/imp-demo.mp4',
+      status: spec.status, flagged: !!spec.flagged, flagNote: spec.flagNote || '',
+      reviewed: spec.status === 'done', annotations: annotations,
+    });
   });
-  return {
-    id: id,
-    date: '2026-06-18',
-    slot: spec.slot,
-    durationLabel: '15:00',          // conceptual length of every recording
-    src: 'public/imp-demo.mp4',
-    status: spec.status,
-    flagged: !!spec.flagged,
-    flagNote: spec.flagNote || '',
-    reviewed: spec.status === 'done',
-    annotations: annotations,
-  };
 });
 
 window.DEMO = {
@@ -179,5 +235,5 @@ window.DEMO = {
   VIDEOS: VIDEOS,
   USERS: USERS,
   CURRENT_USER_ID: CURRENT_USER_ID,
-  DEFAULT_VIDEO_ID: 'imp-rec-2404',  // the 08:45 needs_review clip
+  TODAY_ISO: TODAY_ISO,
 };
