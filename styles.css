@@ -149,28 +149,11 @@ input {
   gap: 11px;
 }
 
-.brand .mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 30% 25%, #ffd98a, var(--amber) 55%, var(--amber-dk));
-  box-shadow: 0 0 0 1px rgba(247, 179, 43, .35), 0 4px 14px rgba(247, 179, 43, .3);
-  font-size: 16px;
-}
-
 .brand h1 {
   font-family: var(--ff-display);
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: .14em;
   margin: 0;
-  text-transform: uppercase;
-}
-
-.brand h1 span {
-  color: var(--amber);
 }
 
 .topnav {
