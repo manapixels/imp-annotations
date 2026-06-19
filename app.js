@@ -6,18 +6,18 @@
 
   const D = window.DEMO;
   const TYPE_BY_ID = Object.fromEntries(D.IMP_TYPES.map(t => [t.id, t]));
-  const DIR_BY_ID  = Object.fromEntries(D.DIRECTIONS.map(d => [d.id, d]));
+  const DIR_BY_ID = Object.fromEntries(D.DIRECTIONS.map(d => [d.id, d]));
   const DIR_BY_KEY = Object.fromEntries(D.DIRECTIONS.map(d => [d.key, d.id]));
   const DIR_BY_NUM = Object.fromEntries(D.DIRECTIONS.map(d => [d.num, d.id]));
-  const ARROW_DIR  = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E' };
+  const ARROW_DIR = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E' };
   const USER_BY_ID = Object.fromEntries(D.USERS.map(u => [u.id, u]));
 
   const $ = id => document.getElementById(id);
   const el = {
     video: $('video'), wrap: $('videoWrap'), empty: $('videoEmpty'),
     recBadge: $('recBadge'), armPrompt: $('armPrompt'), keyhints: $('stageKeyhints'),
-    vidId: $('vidId'), vidSlot: $('vidSlot'), vidStatus: $('vidStatus'),
-    aiProgress: $('aiProgress'), btnFlag: $('btnFlag'), btnDone: $('btnDone'),
+    vidId: $('vidId'), vidStatus: $('vidStatus'),
+    aiProgress: $('aiProgress'), btnFlag: $('btnFlag'),
     tlTrack: $('tlTrack'), tlProgress: $('tlProgress'), tlPlayhead: $('tlPlayhead'),
     tlRecording: $('tlRecording'), tlCur: $('tlCur'), tlDur: $('tlDur'),
     btnPlay: $('btnPlay'), playIcon: $('playIcon'), curTime: $('curTime'), durTime: $('durTime'),
@@ -25,7 +25,7 @@
     btnMute: $('btnMute'), btnArm: $('btnArm'),
     queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
     todoToggle: $('todoToggle'), todoCount: $('todoCount'),
-    annList: $('annList'), annCount: $('annCount'),
+    annList: $('annList'),
     dateBtn: $('dateBtn'), dateLabel: $('dateLabel'), todayBadge: $('todayBadge'), dateMeta: $('dateMeta'), calendar: $('calendar'),
     recordSearch: $('recordSearch'), searchResults: $('searchResults'),
     // annotate modal
@@ -98,9 +98,9 @@
   const STATUS_GLYPH = { todo: '○', done: '✓', issue: '⚑' };
 
 
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const WEEKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   function fmtDate(iso) {
     const p = iso.split('-').map(Number), d = new Date(p[0], p[1] - 1, p[2]);
     return WEEKDAYS[d.getDay()] + ' ' + p[2] + ' ' + MONTHS_SHORT[p[1] - 1] + ' ' + p[0];
@@ -109,14 +109,14 @@
   const dayHasData = iso => D.VIDEOS.some(v => v.date === iso);
   const dayHasIssue = iso => D.VIDEOS.some(v => v.date === iso && unresolvedIssue(v));
   const unreviewedAI = v => v.annotations.filter(a => a.source === 'ai' && a.status === 'unreviewed');
-  const allAI        = v => v.annotations.filter(a => a.source === 'ai');
+  const allAI = v => v.annotations.filter(a => a.source === 'ai');
 
   /* Convert seed fractions -> seconds once we know the real clip duration. */
   function initTimes() {
     if (state.timesReady) return;
     D.VIDEOS.forEach(v => v.annotations.forEach(a => {
       if (a.startSec == null) { a.startSec = (a.f0 || 0) * state.duration; }
-      if (a.endSec == null)   { a.endSec   = (a.f1 || 0) * state.duration; }
+      if (a.endSec == null) { a.endSec = (a.f1 || 0) * state.duration; }
     }));
     state.timesReady = true;
   }
@@ -125,7 +125,7 @@
   function normalizeSeedStatuses() {
     D.VIDEOS.forEach(v => {
       if (v.status === 'issue') v.flagged = true;
-      if (v.status === 'done')  v.reviewed = true;
+      if (v.status === 'done') v.reviewed = true;
     });
   }
 
@@ -141,28 +141,20 @@
     const v = currentVideo();
     const st = statusOf(v);
     el.vidId.textContent = v.id;
-    el.vidSlot.innerHTML = '<b>' + v.slot + '</b> · ' + v.durationLabel + ' recording';
     el.vidStatus.className = 'status-chip s-' + st;
     el.vidStatus.textContent = STATUS_LABEL[st];
 
-    const ai = allAI(v), left = unreviewedAI(v).length;
-    if (ai.length) {
-      const done = ai.length - left;
-      el.aiProgress.innerHTML =
-        '<span>Verify AI&nbsp;&nbsp;<b style="color:var(--txt)">' + done + '/' + ai.length + '</b></span>' +
-        '<span class="bar"><i style="width:' + (done / ai.length * 100) + '%"></i></span>';
-    } else {
-      el.aiProgress.innerHTML = '<span>No AI pre-pass — annotate from scratch</span>';
-    }
-
     el.btnFlag.textContent = v.flagged ? '⚑ Flagged' : '⚑ Flag';
     el.btnFlag.classList.toggle('danger', v.flagged);
+  }
 
-    el.btnDone.textContent = v.reviewed ? '✓ Reviewed' : 'Mark reviewed';
-    // filled green only reflects the DONE state; otherwise a green-accented ghost
-    el.btnDone.className = 'btn ' + (v.reviewed ? 'green' : 'green-outline');
-    el.btnDone.disabled = left > 0;
-    el.btnDone.title = left > 0 ? 'Verify all ' + left + ' AI annotation(s) first' : 'Confirm the clip is fully reviewed';
+  /* AI-verification progress for the current clip — lives in the Annotations header */
+  function renderAiProgress(v) {
+    const total = allAI(v).length, done = total - unreviewedAI(v).length;
+    el.aiProgress.innerHTML = total
+      ? '<span>TO-DO&nbsp;&nbsp;<b style="color:var(--txt)">' + done + '/' + total + '</b></span>' +
+      '<span class="bar"><i style="width:' + (done / total * 100) + '%"></i></span>'
+      : '<span>No AI tags</span>';
   }
 
   function renderQueue() {
@@ -184,7 +176,7 @@
     if (!list.length) {
       const msg = state.queueFilter === 'issue' ? 'No open issues on this day.'
         : state.queueFilter === 'todo' ? 'Nothing left to do on this day.'
-        : 'No recordings for this day.';
+          : 'No recordings for this day.';
       el.queueGrid.innerHTML = '<div class="queue-empty">' + msg + '</div>';
       return;
     }
@@ -266,7 +258,7 @@
   }
 
   function srcTag(a) {
-    if (a.status === 'rejected')  return '<span class="src-tag rejected">Rejected</span>';
+    if (a.status === 'rejected') return '<span class="src-tag rejected">Rejected</span>';
     if (a.status === 'corrected') return '<span class="src-tag corrected">Corrected</span>';
     if (a.source === 'ai') return '<span class="src-tag ai">AI</span>';   // accepted & unreviewed both read "AI"
     return '<span class="src-tag human">You</span>';
@@ -288,8 +280,7 @@
   function renderAnnList() {
     const v = currentVideo();
     const anns = v.annotations.slice().sort((a, b) => (a.startSec || 0) - (b.startSec || 0));
-    const left = unreviewedAI(v).length;
-    el.annCount.textContent = anns.length + (left ? ' · ' + left + ' to verify' : '');
+    renderAiProgress(v);
 
     if (!anns.length) {
       el.annList.innerHTML =
@@ -316,29 +307,29 @@
         if (rejected) {
           // a false positive isn't editable — offer recovery (Restore) + remove
           actions = '<button class="mini-btn ok" data-act="restore" title="Restore as a real imp">↺</button>' +
-                    '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+            '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
         } else {
           actions = '<button class="mini-btn" data-act="edit" title="Edit (E)">✎</button>' +
-                    '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+            '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
         }
       }
 
       row.innerHTML =
         dirChip +
         '<div class="ann-main">' +
-          '<div class="ann-type">' +
-            '<span class="edot" style="background:' + elemColor(a.typeId) + '"></span>' +
-            '<span class="nm">' + (t ? t.name : '—') + '</span>' +
-            srcTag(a) +
-          '</div>' +
-          '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span>' + reviewerChip(a) + '</div>' +
+        '<div class="ann-type">' +
+        '<span class="edot" style="background:' + elemColor(a.typeId) + '"></span>' +
+        '<span class="nm">' + (t ? t.name : '—') + '</span>' +
+        srcTag(a) +
+        '</div>' +
+        '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span>' + reviewerChip(a) + '</div>' +
         '</div>' +
         '<div class="ann-actions">' + actions + '</div>' +
         (isUnrev ?
           '<div class="ann-verify">' +
-            '<button class="vbtn ok" data-act="accept" title="Accept (Y)">✓ Accept</button>' +
-            '<button class="vbtn" data-act="correct" title="Correct (E)">Correct</button>' +
-            '<button class="vbtn no" data-act="reject" title="Reject (N)">✕ Reject</button>' +
+          '<button class="vbtn ok" data-act="accept" title="Accept (Y)">✓ Accept</button>' +
+          '<button class="vbtn" data-act="correct" title="Correct (E)">Correct</button>' +
+          '<button class="vbtn no" data-act="reject" title="Reject (N)">✕ Reject</button>' +
           '</div>' : '');
       el.annList.appendChild(row);
     });
@@ -451,7 +442,7 @@
     };
     el.anTitle.textContent =
       opts.mode === 'create' ? 'New annotation' :
-      opts.mode === 'correct' ? 'Correct AI annotation' : 'Edit annotation';
+        opts.mode === 'correct' ? 'Correct AI annotation' : 'Edit annotation';
     el.anSearch.value = '';
     el.anModal.classList.add('open');
     renderModal();
@@ -501,7 +492,7 @@
     // direction pad
     el.anDirpad.innerHTML = D.DIRECTIONS.map(dir =>
       '<button class="dir-cell' + (dir.id === d.direction ? ' selected' : '') + (dir.id === 'HOVER' ? ' center' : '') + '" data-dir="' + dir.id + '">' +
-        '<span class="k">' + dir.key + '</span><span class="ar">' + dir.arrow + '</span>' +
+      '<span class="k">' + dir.key + '</span><span class="ar">' + dir.arrow + '</span>' +
       '</button>').join('');
     el.anDirLabel.innerHTML = d.direction ? 'Flew <b>' + DIR_BY_ID[d.direction].label + '</b>' : 'Pick a direction';
 
@@ -646,7 +637,7 @@
     state.selectedVideoId = id;
     state.selectedAnnId = null;
     el.video.currentTime = 0;
-    el.video.play().catch(() => {});
+    el.video.play().catch(() => { });
     render();
   }
   function toggleFlag() {
@@ -654,18 +645,6 @@
     v.flagged = !v.flagged;
     toast({ text: v.flagged ? 'Recording flagged as an issue' : 'Flag cleared', variant: v.flagged ? 'danger' : 'good' });
     render();
-  }
-  function markReviewed() {
-    const v = currentVideo();
-    if (unreviewedAI(v).length) return;
-    if (v.reviewed) {            // toggle back to editing
-      v.reviewed = false; render(); return;
-    }
-    toast({
-      text: 'Confirm you watched the full clip and no imps were missed?',
-      persist: true, actionLabel: 'Confirm reviewed',
-      onAction: () => { v.reviewed = true; clearToast(); toast({ text: 'Recording marked reviewed ✓', variant: 'good' }); render(); },
-    });
   }
 
   /* ============================ USER MENU ================================ */
@@ -677,12 +656,12 @@
       '<div class="ud-head">Reviewing as</div>' +
       D.USERS.map(x =>
         '<button class="user-item' + (x.id === state.currentUserId ? ' current' : '') + '" data-user="' + x.id + '">' +
-          avatar(x) +
-          '<span class="ui-meta"><span class="ui-name">' + x.name + '</span><span class="ui-role">' + x.role + '</span></span>' +
-          (x.id === state.currentUserId ? '<span class="ui-check">✓</span>' : '') +
+        avatar(x) +
+        '<span class="ui-meta"><span class="ui-name">' + x.name + '</span><span class="ui-role">' + x.role + '</span></span>' +
+        (x.id === state.currentUserId ? '<span class="ui-check">✓</span>' : '') +
         '</button>').join('');
   }
-  function openUserMenu()  { state.userMenuOpen = true;  el.userDropdown.classList.add('open'); }
+  function openUserMenu() { state.userMenuOpen = true; el.userDropdown.classList.add('open'); }
   function closeUserMenu() { state.userMenuOpen = false; el.userDropdown.classList.remove('open'); }
   function selectUser(id) {
     state.currentUserId = id;
@@ -750,7 +729,7 @@
 
   /* ============================ KEYBOARD ================================= */
   function onKeyDown(e) {
-    if (state.activeModal === 'annotate')  return onAnnotateKey(e);
+    if (state.activeModal === 'annotate') return onAnnotateKey(e);
     if (state.activeModal === 'shortcuts') {
       if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeShortcuts(); }
       return;
@@ -766,12 +745,12 @@
     switch (e.key) {
       case ' ': case 'Spacebar': e.preventDefault(); togglePlay(); break;
       case 'a': case 'A': e.preventDefault(); armToggle(); break;
-      case 'ArrowLeft':  e.preventDefault(); seekBy(-5); break;
-      case 'ArrowRight': e.preventDefault(); seekBy(5);  break;
+      case 'ArrowLeft': e.preventDefault(); seekBy(-5); break;
+      case 'ArrowRight': e.preventDefault(); seekBy(5); break;
       case ',': e.preventDefault(); frameStep(-1); break;
-      case '.': e.preventDefault(); frameStep(1);  break;
+      case '.': e.preventDefault(); frameStep(1); break;
       case '[': e.preventDefault(); cycleMarker(-1); break;
-      case ']': e.preventDefault(); cycleMarker(1);  break;
+      case ']': e.preventDefault(); cycleMarker(1); break;
       case 'Enter': if (state.selectedAnnId) { e.preventDefault(); jumpToAnn(state.selectedAnnId); } break;
       case 'y': case 'Y': verifyKey('accept'); break;
       case 'n': case 'N': verifyKey('reject'); break;
@@ -808,7 +787,7 @@
 
     if (d.zone === 'type') {
       if (e.key === 'ArrowDown') { e.preventDefault(); d.typeIndex = Math.min(d.typeIndex + 1, d.filtered.length - 1); renderModal(); return; }
-      if (e.key === 'ArrowUp')   { e.preventDefault(); d.typeIndex = Math.max(d.typeIndex - 1, 0); renderModal(); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); d.typeIndex = Math.max(d.typeIndex - 1, 0); renderModal(); return; }
       if (el.anSearch.value === '' && /^[1-5]$/.test(e.key)) {
         const id = state.recentTypeIds[+e.key - 1];
         if (id) { e.preventDefault(); chooseType(id); }
@@ -820,10 +799,10 @@
     // direction zone
     if (e.key === 'Backspace') { e.preventDefault(); d.zone = 'type'; el.anSearch.focus(); renderModal(); return; }
     const k = e.key.toUpperCase();
-    if (DIR_BY_KEY[k])      { e.preventDefault(); chooseDir(DIR_BY_KEY[k]); return; }
-    if (DIR_BY_NUM[e.key])  { e.preventDefault(); chooseDir(DIR_BY_NUM[e.key]); return; }
-    if (ARROW_DIR[e.key])   { e.preventDefault(); chooseDir(ARROW_DIR[e.key]); return; }
-    if (e.key === ' ')      { e.preventDefault(); chooseDir('HOVER'); return; }
+    if (DIR_BY_KEY[k]) { e.preventDefault(); chooseDir(DIR_BY_KEY[k]); return; }
+    if (DIR_BY_NUM[e.key]) { e.preventDefault(); chooseDir(DIR_BY_NUM[e.key]); return; }
+    if (ARROW_DIR[e.key]) { e.preventDefault(); chooseDir(ARROW_DIR[e.key]); return; }
+    if (e.key === ' ') { e.preventDefault(); chooseDir('HOVER'); return; }
   }
 
   /* ===================== FIND BY IMP TYPE (header search) =============== */
@@ -908,15 +887,14 @@
     // transport
     el.btnPlay.onclick = togglePlay;
     el.btnBack.onclick = () => seekBy(-5);
-    el.btnFwd.onclick  = () => seekBy(5);
+    el.btnFwd.onclick = () => seekBy(5);
     el.btnSlow.onclick = cycleSpeed;
     el.btnStep.onclick = () => frameStep(1);
     el.btnMute.onclick = toggleMute;
-    el.btnArm.onclick  = armToggle;
+    el.btnArm.onclick = armToggle;
     el.btnFlag.onclick = toggleFlag;
-    el.btnDone.onclick = markReviewed;
 
-    el.video.addEventListener('play',  () => setPlayIcon(true));
+    el.video.addEventListener('play', () => setPlayIcon(true));
     el.video.addEventListener('pause', () => setPlayIcon(false));
     el.video.addEventListener('loadedmetadata', () => {
       state.duration = el.video.duration || 0;
@@ -924,7 +902,7 @@
       el.tlDur.textContent = fmt(state.duration);
       initTimes();
       render();
-      el.video.play().catch(() => {});
+      el.video.play().catch(() => { });
       setTimeout(() => el.armPrompt.classList.add('hide'), 6000);
     });
     el.video.addEventListener('error', () => { el.empty.style.display = 'grid'; });
@@ -948,18 +926,11 @@
       const id = row.dataset.id;
       const btn = e.target.closest('[data-act]');
       if (!btn) { jumpToAnn(id); return; }   // the whole card is the jump target
-    // header search: find recordings by imp type
-    el.recordSearch.addEventListener('input', renderSearch);
-    el.recordSearch.addEventListener('focus', () => { if (el.recordSearch.value.trim()) renderSearch(); });
-    el.searchResults.addEventListener('click', e => {
-      const r = e.target.closest('.sr-row'); if (r) goToResult(r.dataset.vid, r.dataset.ann);
-    });
-
       switch (btn.dataset.act) {
-        case 'edit':    editAnn(id); break;
-        case 'del':     deleteAnn(id); break;
-        case 'accept':  acceptAI(id); break;
-        case 'reject':  rejectAI(id); break;
+        case 'edit': editAnn(id); break;
+        case 'del': deleteAnn(id); break;
+        case 'accept': acceptAI(id); break;
+        case 'reject': rejectAI(id); break;
         case 'correct': editAnn(id); break;
         case 'restore': restoreAnn(id); break;
       }
@@ -968,7 +939,6 @@
     // date picker
     el.dateBtn.onclick = e => { e.stopPropagation(); state.calendarOpen ? closeCalendar() : openCalendar(); };
     el.calendar.addEventListener('click', e => {
-      if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
       e.stopPropagation();
       const nav = e.target.closest('[data-cal]'); if (nav) { shiftCalMonth(nav.dataset.cal === 'next' ? 1 : -1); return; }
       const cell = e.target.closest('[data-date]'); if (cell && !cell.disabled) setDate(cell.dataset.date);
@@ -977,6 +947,13 @@
     // queue filters (mutually exclusive; click an active one to clear back to all)
     el.todoToggle.onclick = () => { state.queueFilter = state.queueFilter === 'todo' ? 'all' : 'todo'; renderQueue(); };
     el.issuesToggle.onclick = () => { state.queueFilter = state.queueFilter === 'issue' ? 'all' : 'issue'; renderQueue(); };
+
+    // header search: find recordings by imp type
+    el.recordSearch.addEventListener('input', renderSearch);
+    el.recordSearch.addEventListener('focus', () => { if (el.recordSearch.value.trim()) renderSearch(); });
+    el.searchResults.addEventListener('click', e => {
+      const r = e.target.closest('.sr-row'); if (r) goToResult(r.dataset.vid, r.dataset.ann);
+    });
 
     // shortcuts modal
     el.btnShortcuts.onclick = openShortcuts;
@@ -991,6 +968,7 @@
     document.addEventListener('click', e => {
       if (state.userMenuOpen && !e.target.closest('.user-menu')) closeUserMenu();
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
+      if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
     });
 
     // annotate modal interactions

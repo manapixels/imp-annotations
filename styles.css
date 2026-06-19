@@ -594,13 +594,17 @@ input {
 .ai-progress {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11px;
   color: var(--muted);
+  font-family: var(--ff-ui);
+  /* it now lives in the uppercase side-head — keep it readable */
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .ai-progress .bar {
-  width: 84px;
+  width: 70px;
   height: 6px;
   border-radius: 999px;
   background: var(--panel-3);
