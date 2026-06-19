@@ -519,41 +519,44 @@ input {
 /* ============================ STAGE (video) ================================ */
 .stage {
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: 1fr auto auto;
   min-height: 0;
   min-width: 0;
   padding: 16px 18px 14px;
   gap: 12px;
 }
 
-.stage-head {
+/* clip id / status / flag overlaid on the video — reclaims a header row of height */
+.video-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-width: 0;
+  gap: 11px;
+  padding: 12px 13px;
+  background: linear-gradient(to bottom, rgba(5, 7, 10, .72), rgba(5, 7, 10, 0));
+  pointer-events: none;
 }
 
-.stage-head .id {
+.video-topbar>* {
+  pointer-events: auto;
+}
+
+.video-topbar .id {
   font-family: var(--ff-mono);
   font-size: 13px;
   color: var(--txt);
-  background: var(--panel-2);
+  background: rgba(18, 22, 29, .82);
   border: 1px solid var(--line);
   padding: 5px 10px;
   border-radius: var(--r-sm);
+  backdrop-filter: blur(4px);
 }
 
-.stage-head .slot {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.stage-head .slot b {
-  color: var(--txt-2);
-  font-weight: 600;
-}
-
-.stage-head .spacer {
+.video-topbar .spacer {
   flex: 1;
 }
 
@@ -713,10 +716,10 @@ input {
   background: #000;
 }
 
-/* recording badge */
+/* recording badge — sits below the overlaid clip id/status bar */
 .rec-badge {
   position: absolute;
-  top: 14px;
+  top: 54px;
   left: 14px;
   display: none;
   align-items: center;
