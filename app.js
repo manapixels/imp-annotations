@@ -22,6 +22,7 @@
     tlRecording: $('tlRecording'), tlCur: $('tlCur'), tlDur: $('tlDur'),
     btnPlay: $('btnPlay'), playIcon: $('playIcon'), curTime: $('curTime'), durTime: $('durTime'),
     btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'), btnStep: $('btnStep'),
+    skipBtn: $('skipBtn'), skipMenu: $('skipMenu'), skipVal: $('skipVal'),
     btnMute: $('btnMute'), btnArm: $('btnArm'),
     queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
     todoToggle: $('todoToggle'), todoCount: $('todoCount'),
@@ -59,9 +60,12 @@
     userMenuOpen: false,
     searchOpen: false,
     searchIndex: 0,
+    skipStep: 5,                              // seconds per ←/→ skip
+    skipMenuOpen: false,
     speeds: [1, 0.5, 0.25],
     speedIdx: 0,
   };
+  const SKIP_OPTIONS = [1, 2, 5, 10, 30];
 
   /* ----------------------------- helpers --------------------------------- */
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -395,8 +399,24 @@
   function cycleSpeed() {
     state.speedIdx = (state.speedIdx + 1) % state.speeds.length;
     el.video.playbackRate = state.speeds[state.speedIdx];
-    el.btnSlow.innerHTML = state.speeds[state.speedIdx] + '× speed';
+    el.btnSlow.innerHTML = state.speeds[state.speedIdx] + '× speed <span class="kbd">S</span>';
   }
+
+  /* ---- skip-amount control (drives the back/fwd buttons + arrow keys) ----- */
+  function setSkip(n) {
+    state.skipStep = n;
+    el.skipVal.textContent = n + 's';
+    el.btnBack.innerHTML = n + 's <span class="kbd">←</span>';
+    el.btnFwd.innerHTML = n + 's <span class="kbd">→</span>';
+    renderSkipMenu();
+  }
+  function renderSkipMenu() {
+    el.skipMenu.innerHTML = '<div class="sm-head">Skip amount</div>' +
+      SKIP_OPTIONS.map(n => '<button class="skip-opt' + (n === state.skipStep ? ' active' : '') +
+        '" data-skip="' + n + '">' + n + ' second' + (n === 1 ? '' : 's') + '</button>').join('');
+  }
+  function openSkipMenu() { state.skipMenuOpen = true; el.skipMenu.classList.add('open'); }
+  function closeSkipMenu() { state.skipMenuOpen = false; el.skipMenu.classList.remove('open'); }
   function toggleMute() {
     el.video.muted = !el.video.muted;
     el.btnMute.textContent = el.video.muted ? '🔇 muted' : '🔊 sound';
@@ -758,6 +778,7 @@
     }
     if (state.userMenuOpen && e.key === 'Escape') { e.preventDefault(); closeUserMenu(); return; }
     if (state.calendarOpen && e.key === 'Escape') { e.preventDefault(); closeCalendar(); return; }
+    if (state.skipMenuOpen && e.key === 'Escape') { e.preventDefault(); closeSkipMenu(); return; }
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
       if (ae === el.recordSearch) onSearchKey(e);
@@ -767,8 +788,9 @@
     switch (e.key) {
       case ' ': case 'Spacebar': e.preventDefault(); togglePlay(); break;
       case 'a': case 'A': e.preventDefault(); armToggle(); break;
-      case 'ArrowLeft': e.preventDefault(); seekBy(-5); break;
-      case 'ArrowRight': e.preventDefault(); seekBy(5); break;
+      case 'ArrowLeft': e.preventDefault(); seekBy(-state.skipStep); break;
+      case 'ArrowRight': e.preventDefault(); seekBy(state.skipStep); break;
+      case 's': case 'S': e.preventDefault(); cycleSpeed(); break;
       case ',': e.preventDefault(); frameStep(-1); break;
       case '.': e.preventDefault(); frameStep(1); break;
       case '[': e.preventDefault(); cycleMarker(-1); break;
@@ -908,13 +930,19 @@
   function wire() {
     // transport
     el.btnPlay.onclick = togglePlay;
-    el.btnBack.onclick = () => seekBy(-5);
-    el.btnFwd.onclick = () => seekBy(5);
+    el.btnBack.onclick = () => seekBy(-state.skipStep);
+    el.btnFwd.onclick = () => seekBy(state.skipStep);
     el.btnSlow.onclick = cycleSpeed;
     el.btnStep.onclick = () => frameStep(1);
     el.btnMute.onclick = toggleMute;
     el.btnArm.onclick = armToggle;
     el.btnFlag.onclick = toggleFlag;
+
+    // skip-amount dropdown
+    el.skipBtn.onclick = e => { e.stopPropagation(); state.skipMenuOpen ? closeSkipMenu() : openSkipMenu(); };
+    el.skipMenu.addEventListener('click', e => {
+      const o = e.target.closest('[data-skip]'); if (o) { setSkip(+o.dataset.skip); closeSkipMenu(); }
+    });
 
     el.video.addEventListener('play', () => setPlayIcon(true));
     el.video.addEventListener('pause', () => setPlayIcon(false));
@@ -991,6 +1019,7 @@
       if (state.userMenuOpen && !e.target.closest('.user-menu')) closeUserMenu();
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
       if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
+      if (state.skipMenuOpen && !e.target.closest('.skip-wrap')) closeSkipMenu();
     });
 
     // floating tooltips for any [data-tip] element
@@ -1042,6 +1071,7 @@
     wire();
     renderUser();
     renderDateBar();
+    setSkip(state.skipStep);
     render();
     requestAnimationFrame(rafLoop);
   }

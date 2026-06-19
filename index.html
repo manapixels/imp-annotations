@@ -100,15 +100,19 @@
         <div class="time"><span id="curTime">0:00</span><span class="sep">/</span><span id="durTime">0:00</span></div>
 
         <div class="tgroup">
-          <button class="mini" id="btnBack"><span class="kbd">←</span> 5s</button>
+          <div class="skip-wrap">
+            <button class="mini" id="skipBtn" title="Adjust how far each skip jumps">skip <b id="skipVal">5s</b> <svg class="cv" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+            <div class="skip-menu" id="skipMenu"></div>
+          </div>
+          <button class="mini" id="btnBack">5s <span class="kbd">←</span></button>
           <button class="mini" id="btnFwd">5s <span class="kbd">→</span></button>
-          <button class="mini" id="btnSlow">1× speed</button>
+          <button class="mini" id="btnSlow">1× speed <span class="kbd">S</span></button>
           <button class="mini" id="btnStep">frame <span class="kbd">,</span><span class="kbd">.</span></button>
         </div>
 
         <div class="spacer"></div>
         <button class="mini" id="btnMute">🔇 muted</button>
-        <button class="btn primary arm-btn" id="btnArm"><span class="kbd kbd-amber">A</span> Mark imp entry</button>
+        <button class="btn primary arm-btn" id="btnArm">Mark imp entry <span class="kbd kbd-amber">A</span></button>
       </div>
     </section>
 
