@@ -38,6 +38,7 @@
     anAiDiff: $('anAiDiff'), anCancel: $('anCancel'), anCreate: $('anCreate'),
     // shortcuts
     btnShortcuts: $('btnShortcuts'), scModal: $('shortcutsModal'), scClose: $('scClose'), scGrid: $('scGrid'),
+    ksBtn: $('ksBtn'), ksLabel: $('ksLabel'), ksMenu: $('ksMenu'),
     toastWrap: $('toast-wrap'), floatTip: $('floatTip'),
     // user menu
     userBtn: $('userBtn'), userName: $('userName'), userAvatar: $('userAvatar'), userDropdown: $('userDropdown'),
@@ -66,6 +67,8 @@
     searchIndex: 0,
     skipStep: 5,                              // seconds per ←/→ skip
     skipMenuOpen: false,
+    kbdStyle: 'keycap',
+    ksMenuOpen: false,
     speeds: [1, 0.5, 0.25],
     speedIdx: 0,
   };
@@ -787,7 +790,29 @@
     ).join('');
   }
   const openShortcuts = () => { state.activeModal = 'shortcuts'; el.scModal.classList.add('open'); };
-  const closeShortcuts = () => { state.activeModal = null; el.scModal.classList.remove('open'); };
+  const closeShortcuts = () => { state.activeModal = null; el.scModal.classList.remove('open'); closeKsMenu(); };
+
+  /* ---- key-hint style switcher (preview different .kbd designs live) ----- */
+  const KBD_STYLES = [
+    { id: 'keycap', name: 'Keycap' }, { id: 'flat', name: 'Flat' },
+    { id: 'outline', name: 'Outline' }, { id: 'soft', name: 'Soft' }, { id: 'bracket', name: 'Bracket' },
+  ];
+  function renderKsMenu() {
+    el.ksMenu.innerHTML = KBD_STYLES.map(s =>
+      '<button class="ks-opt' + (s.id === state.kbdStyle ? ' active' : '') + '" data-kbd-style="' + s.id + '">' +
+        '<span class="ks-prev" data-kbd="' + s.id + '"><span class="kbd">A</span><span class="kbd">↵</span></span>' +
+        '<span class="ks-name">' + s.name + '</span>' +
+        (s.id === state.kbdStyle ? '<span class="ks-check">✓</span>' : '') +
+      '</button>').join('');
+  }
+  function setKbdStyle(id) {
+    state.kbdStyle = id;
+    document.documentElement.dataset.kbd = id;
+    el.ksLabel.textContent = (KBD_STYLES.find(s => s.id === id) || {}).name || id;
+    renderKsMenu();
+  }
+  function openKsMenu() { state.ksMenuOpen = true; el.ksMenu.classList.add('open'); }
+  function closeKsMenu() { state.ksMenuOpen = false; el.ksMenu.classList.remove('open'); }
 
   /* ============================== TOAST ================================== */
   let toastEl = null;
@@ -828,7 +853,8 @@
   function onKeyDown(e) {
     if (state.activeModal === 'annotate') return onAnnotateKey(e);
     if (state.activeModal === 'shortcuts') {
-      if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeShortcuts(); }
+      if (e.key === 'Escape') { e.preventDefault(); state.ksMenuOpen ? closeKsMenu() : closeShortcuts(); }
+      else if (e.key === '?') { e.preventDefault(); closeShortcuts(); }
       return;
     }
     if (state.activeModal === 'addUser') {
@@ -1073,6 +1099,12 @@
     el.scClose.onclick = closeShortcuts;
     el.scModal.addEventListener('click', e => { if (e.target === el.scModal) closeShortcuts(); });
 
+    // key-hint style switcher
+    el.ksBtn.onclick = e => { e.stopPropagation(); state.ksMenuOpen ? closeKsMenu() : openKsMenu(); };
+    el.ksMenu.addEventListener('click', e => {
+      const o = e.target.closest('[data-kbd-style]'); if (o) { setKbdStyle(o.dataset.kbdStyle); closeKsMenu(); }
+    });
+
     // user menu
     el.userBtn.onclick = e => { e.stopPropagation(); state.userMenuOpen ? closeUserMenu() : openUserMenu(); };
     el.userDropdown.addEventListener('click', e => {
@@ -1094,6 +1126,7 @@
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
       if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
       if (state.skipMenuOpen && !e.target.closest('.skip-wrap')) closeSkipMenu();
+      if (state.ksMenuOpen && !e.target.closest('.ks-wrap')) closeKsMenu();
     });
 
     // floating tooltips for any [data-tip] element
@@ -1146,6 +1179,7 @@
     renderUser();
     renderDateBar();
     setSkip(state.skipStep);
+    setKbdStyle(state.kbdStyle);
     el.btnMute.innerHTML = MUTE_ICON;          // video starts muted
     render();
     requestAnimationFrame(rafLoop);

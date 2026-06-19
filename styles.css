@@ -120,6 +120,60 @@ input {
   background: linear-gradient(180deg, #3a2e10, #241c08);
 }
 
+/* ---- switchable key-hint styles (test which fits the theme) -------------
+   Applied via [data-kbd="…"] on <html> globally, or on a preview wrapper.
+   The amber key keeps its tint in every style (:not(.kbd-amber)). */
+[data-kbd="keycap"] .kbd:not(.kbd-amber) {
+  background: linear-gradient(180deg, #2a323f, #1a212b);
+  border: 1px solid #333d4c;
+  border-bottom-color: #11161d;
+  border-bottom-width: 2px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05);
+  color: #d6deea;
+}
+
+[data-kbd="flat"] .kbd:not(.kbd-amber) {
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-bottom-width: 1px;
+  box-shadow: none;
+  color: #cdd6e2;
+}
+
+[data-kbd="outline"] .kbd:not(.kbd-amber) {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-bottom-width: 1px;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+[data-kbd="soft"] .kbd:not(.kbd-amber) {
+  background: rgba(255, 255, 255, .07);
+  border: 0;
+  box-shadow: none;
+  color: var(--txt-2);
+}
+
+[data-kbd="bracket"] .kbd:not(.kbd-amber) {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  min-width: 0;
+  color: var(--muted);
+}
+
+[data-kbd="bracket"] .kbd:not(.kbd-amber)::before {
+  content: "[";
+  opacity: .6;
+}
+
+[data-kbd="bracket"] .kbd:not(.kbd-amber)::after {
+  content: "]";
+  opacity: .6;
+}
+
 .hint {
   color: var(--muted);
   font-size: 12px;
@@ -2424,6 +2478,100 @@ input {
 }
 
 /* --- shortcuts modal --- */
+/* key-hint style switcher (top of the shortcuts modal) */
+.kbd-style-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ksr-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt-2);
+}
+
+.ks-wrap {
+  position: relative;
+}
+
+.ks-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--txt);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.ks-btn:hover {
+  border-color: #3a4554;
+}
+
+.ks-btn .cv {
+  color: var(--muted);
+}
+
+.ks-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  z-index: 60;
+  min-width: 186px;
+  display: none;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  padding: 5px;
+}
+
+.ks-menu.open {
+  display: block;
+  animation: rise .12s ease;
+}
+
+.ks-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  background: none;
+  color: var(--txt);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  text-align: left;
+}
+
+.ks-opt:hover {
+  background: var(--panel-3);
+}
+
+.ks-opt .ks-prev {
+  display: inline-flex;
+  gap: 4px;
+  width: 52px;
+  flex: none;
+}
+
+.ks-opt .ks-name {
+  flex: 1;
+}
+
+.ks-opt .ks-check {
+  color: var(--green);
+  font-weight: 700;
+}
+
 .sc-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
