@@ -1170,6 +1170,7 @@ input {
 }
 
 .cal-cell {
+  position: relative;
   aspect-ratio: 1 / 1;
   border-radius: var(--r-sm);
   background: transparent;
@@ -1179,6 +1180,19 @@ input {
   font-weight: 600;
   display: grid;
   place-items: center;
+}
+
+/* per-day count of recordings still pending review */
+.cal-count {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-family: var(--ff-mono);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: currentColor;
+  opacity: .65;
 }
 
 .cal-cell.empty {
@@ -1223,10 +1237,17 @@ input {
   margin-top: 10px;
   font-size: 10px;
   color: var(--muted);
+  display: flex;
+  gap: 14px;
 }
 
 .cal-foot .ci b {
   color: var(--red);
+}
+
+.cal-foot .ci b.num {
+  font-family: var(--ff-mono);
+  color: var(--txt-2);
 }
 
 /* queue filter toggles (To-do / Issues) — replace the done counter */

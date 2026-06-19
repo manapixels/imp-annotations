@@ -224,9 +224,13 @@
       if (dayHasIssue(iso)) cls.push('has-issue');
       if (iso === state.selectedDate) cls.push('selected');
       if (iso === D.TODAY_ISO) cls.push('today');
-      html += '<button class="' + cls.join(' ') + '"' + (has ? '' : ' disabled') + ' data-date="' + iso + '">' + d + '</button>';
+      const pending = has ? dayVideos(iso).filter(v => statusOf(v) !== 'done').length : 0;
+      const badge = pending ? '<span class="cal-count" title="' + pending + ' pending review">' + pending + '</span>' : '';
+      html += '<button class="' + cls.join(' ') + '"' + (has ? '' : ' disabled') + ' data-date="' + iso + '">' + d + badge + '</button>';
     }
-    html += '</div><div class="cal-foot"><span class="ci"><b>⚑</b> day has unresolved issues</span></div>';
+    html += '</div><div class="cal-foot">' +
+      '<span class="ci"><b class="num">3</b> pending review</span>' +
+      '<span class="ci"><b>⚑</b> unresolved issues</span></div>';
     el.calendar.innerHTML = html;
   }
   function openCalendar() {
