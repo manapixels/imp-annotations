@@ -193,8 +193,8 @@ input {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 18px;
+  gap: 16px;
+  padding: 0 16px;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border-bottom: 1px solid var(--line);
   z-index: 30;
@@ -697,8 +697,8 @@ input {
   grid-template-rows: 1fr auto auto;
   min-height: 0;
   min-width: 0;
-  padding: 16px 18px 14px;
-  gap: 12px;
+  padding: 14px 16px 12px;
+  gap: 10px;
 }
 
 /* clip id / status / flag overlaid on the video — reclaims a header row of height */
