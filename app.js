@@ -24,6 +24,7 @@
     btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'), btnStep: $('btnStep'),
     btnMute: $('btnMute'), btnArm: $('btnArm'),
     queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
+    todoToggle: $('todoToggle'), todoCount: $('todoCount'),
     annList: $('annList'), annCount: $('annCount'),
     dateBtn: $('dateBtn'), dateLabel: $('dateLabel'), todayBadge: $('todayBadge'), dateMeta: $('dateMeta'), calendar: $('calendar'),
     recordSearch: $('recordSearch'),
@@ -48,7 +49,7 @@
     currentUserId: D.CURRENT_USER_ID,
     calMonth: null,                           // { y, m } shown in the date picker
     calendarOpen: false,
-    issuesOnly: false,
+    queueFilter: 'all',                       // 'all' | 'todo' | 'issue'
     duration: 0,
     timesReady: false,
     recording: null,                          // { startSec }
@@ -82,21 +83,17 @@
   const uid = () => 'h' + (Date.now()) + '-' + (_uid++);
 
   /* Every clip is AI-tagged on arrival; status reflects the HUMAN review state.
-     new = not looked at yet · in_progress = some AI tags verified, not finished. */
+     Anything not finished and not flagged is simply "to-do" — new, partially
+     reviewed, and snoozed all collapse into one actionable bucket. */
   function statusOf(v) {
     if (v.flagged) return 'issue';
-    if (v.deferred) return 'deferred';
     if (v.reviewed) return 'done';
-    if (v.annotations.some(a => a.status !== 'unreviewed')) return 'in_progress';
-    return 'new';
+    return 'todo';
   }
   const unresolvedIssue = v => statusOf(v) === 'issue';   // flagged & not yet reviewed
-  const STATUS_LABEL = {
-    issue: 'Issue', deferred: 'Deferred', done: 'Reviewed',
-    in_progress: 'In progress', new: 'New',
-  };
+  const STATUS_LABEL = { issue: 'Issue', done: 'Reviewed', todo: 'To-do' };
   /* distinct SHAPE per status so it reads without relying on colour */
-  const STATUS_GLYPH = { new: '○', in_progress: '◐', done: '✓', deferred: '☾', issue: '⚑' };
+  const STATUS_GLYPH = { todo: '○', done: '✓', issue: '⚑' };
 
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -125,9 +122,8 @@
   /* Translate seed statuses into the boolean flags statusOf() expects. */
   function normalizeSeedStatuses() {
     D.VIDEOS.forEach(v => {
-      if (v.status === 'issue')    v.flagged = true;
-      if (v.status === 'deferred') v.deferred = true;
-      if (v.status === 'done')     v.reviewed = true;
+      if (v.status === 'issue') v.flagged = true;
+      if (v.status === 'done')  v.reviewed = true;
     });
   }
 
@@ -170,18 +166,24 @@
   function renderQueue() {
     const day = dayVideos(state.selectedDate);
     const issues = day.filter(unresolvedIssue);
+    const todos = day.filter(v => statusOf(v) === 'todo');
 
-    // issues filter toggle (replaces the old "done" counter)
+    // filter toggles (To-do / Issues) — mutually exclusive, click again to clear
+    el.todoCount.textContent = todos.length;
     el.issuesCount.textContent = issues.length;
-    el.issuesToggle.classList.toggle('active', state.issuesOnly);
+    if (state.queueFilter === 'issue' && !issues.length) state.queueFilter = 'all';
+    if (state.queueFilter === 'todo' && !todos.length) state.queueFilter = 'all';
+    el.todoToggle.classList.toggle('active', state.queueFilter === 'todo');
+    el.issuesToggle.classList.toggle('active', state.queueFilter === 'issue');
     el.issuesToggle.classList.toggle('has-issues', issues.length > 0);
-    if (!issues.length && state.issuesOnly) state.issuesOnly = false;   // nothing to show
 
-    const list = state.issuesOnly ? issues : day;
+    const list = state.queueFilter === 'issue' ? issues : state.queueFilter === 'todo' ? todos : day;
     el.queueGrid.innerHTML = '';
     if (!list.length) {
-      el.queueGrid.innerHTML = '<div class="queue-empty">' +
-        (state.issuesOnly ? 'No open issues on this day.' : 'No recordings for this day.') + '</div>';
+      const msg = state.queueFilter === 'issue' ? 'No open issues on this day.'
+        : state.queueFilter === 'todo' ? 'Nothing left to do on this day.'
+        : 'No recordings for this day.';
+      el.queueGrid.innerHTML = '<div class="queue-empty">' + msg + '</div>';
       return;
     }
     list.forEach(v => {
@@ -189,10 +191,8 @@
       const c = document.createElement('button');
       c.className = 'qcell q-' + st + (v.id === state.selectedVideoId ? ' selected' : '');
       c.dataset.id = v.id;
-      const n = v.annotations.length, left = unreviewedAI(v).length;
+      const n = v.annotations.length;
       let meta = n ? (n + ' imp' + (n > 1 ? 's' : '')) : 'no imps';
-      if (st === 'in_progress') meta = left ? left + ' AI left' : 'in review';
-      if (st === 'deferred') meta = 'snoozed';
       if (st === 'issue') meta = 'needs help';
       c.innerHTML =
         '<span class="qdot">' + STATUS_GLYPH[st] + '</span>' +
@@ -251,7 +251,7 @@
   }
   function pickDefaultForDate(iso) {
     const day = dayVideos(iso);
-    return day.find(unresolvedIssue) || day.find(v => statusOf(v) === 'new') || day[0] || null;
+    return day.find(unresolvedIssue) || day.find(v => statusOf(v) === 'todo') || day[0] || null;
   }
   function setDate(iso) {
     if (!dayHasData(iso)) return;
@@ -304,19 +304,20 @@
       const isUnrev = a.source === 'ai' && a.status === 'unreviewed';
       const rejected = a.status === 'rejected';
 
-      // neutral chip everywhere — direction is read from the arrow shape, and the
-      // element hue lives only on the dot by the name (one taxonomy cue per card)
-      const dirChip = '<div class="ann-dir">' + (dir.arrow || '?') + '</div>';
+      // neutral chip everywhere — direction is read from the (bold) arrow shape,
+      // so the direction text is dropped from the detail line below
+      const dirChip = '<div class="ann-dir" title="Flew ' + (dir.label || '') + '">' + (dir.arrow || '?') + '</div>';
 
-      let actions = '<button class="ann-jump" data-act="jump" title="Jump to entry (Enter)">◎</button>';
+      // the whole card jumps to the entry; only edit/delete/restore live here
+      let actions = '';
       if (!isUnrev) {
         if (rejected) {
           // a false positive isn't editable — offer recovery (Restore) + remove
-          actions += '<button class="mini-btn ok" data-act="restore" title="Restore as a real imp">↺</button>' +
-                     '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+          actions = '<button class="mini-btn ok" data-act="restore" title="Restore as a real imp">↺</button>' +
+                    '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
         } else {
-          actions += '<button class="mini-btn" data-act="edit" title="Edit (E)">✎</button>' +
-                     '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
+          actions = '<button class="mini-btn" data-act="edit" title="Edit (E)">✎</button>' +
+                    '<button class="mini-btn" data-act="del" title="Delete (Del)">🗑</button>';
         }
       }
 
@@ -328,7 +329,7 @@
             '<span class="nm">' + (t ? t.name : '—') + '</span>' +
             srcTag(a) +
           '</div>' +
-          '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span> · ' + (dir.label || '') + reviewerChip(a) + '</div>' +
+          '<div class="ann-sub"><span class="tc">' + fmt(a.startSec) + '–' + fmt(a.endSec) + '</span>' + reviewerChip(a) + '</div>' +
         '</div>' +
         '<div class="ann-actions">' + actions + '</div>' +
         (isUnrev ?
@@ -661,7 +662,7 @@
     toast({
       text: 'Confirm you watched the full clip and no imps were missed?',
       persist: true, actionLabel: 'Confirm reviewed',
-      onAction: () => { v.reviewed = true; v.deferred = false; clearToast(); toast({ text: 'Recording marked reviewed ✓', variant: 'good' }); render(); },
+      onAction: () => { v.reviewed = true; clearToast(); toast({ text: 'Recording marked reviewed ✓', variant: 'good' }); render(); },
     });
   }
 
@@ -884,9 +885,8 @@
       const row = e.target.closest('.ann-row'); if (!row) return;
       const id = row.dataset.id;
       const btn = e.target.closest('[data-act]');
-      if (!btn) { selectAnn(id); return; }
+      if (!btn) { jumpToAnn(id); return; }   // the whole card is the jump target
       switch (btn.dataset.act) {
-        case 'jump':    jumpToAnn(id); break;
         case 'edit':    editAnn(id); break;
         case 'del':     deleteAnn(id); break;
         case 'accept':  acceptAI(id); break;
@@ -904,8 +904,9 @@
       const cell = e.target.closest('[data-date]'); if (cell && !cell.disabled) setDate(cell.dataset.date);
     });
 
-    // issues-only filter
-    el.issuesToggle.onclick = () => { state.issuesOnly = !state.issuesOnly; renderQueue(); };
+    // queue filters (mutually exclusive; click an active one to clear back to all)
+    el.todoToggle.onclick = () => { state.queueFilter = state.queueFilter === 'todo' ? 'all' : 'todo'; renderQueue(); };
+    el.issuesToggle.onclick = () => { state.queueFilter = state.queueFilter === 'issue' ? 'all' : 'issue'; renderQueue(); };
 
     // shortcuts modal
     el.btnShortcuts.onclick = openShortcuts;

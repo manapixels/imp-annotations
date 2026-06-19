@@ -127,19 +127,27 @@
 
       <div class="side-section">
         <div class="side-head">
-          <span>Recording queue</span>
-          <button class="issues-toggle" id="issuesToggle" title="Show only recordings with issues">
-            <span class="ft-dot">⚑</span> Issues <span class="n" id="issuesCount">0</span>
-          </button>
+          <span class="sh-left">
+            <span class="sh-title">Recording queue</span>
+            <span class="info-wrap">
+              <button class="info-i" id="queueInfo" aria-label="What the statuses mean">i</button>
+              <div class="info-pop" role="tooltip">
+                <div class="ip-row"><b style="color:#8693a4">○</b><span><b>To-do</b> — still to review (new, in progress or snoozed)</span></div>
+                <div class="ip-row"><b style="color:var(--green)">✓</b><span><b>Done</b> — fully reviewed &amp; confirmed</span></div>
+                <div class="ip-row"><b style="color:var(--red)">⚑</b><span><b>Issue</b> — flagged; needs resolving</span></div>
+              </div>
+            </span>
+          </span>
+          <div class="q-filters">
+            <button class="qf-toggle todo" id="todoToggle" title="Show only recordings still to do">
+              <span class="ft-dot">○</span> To-do <span class="n" id="todoCount">0</span>
+            </button>
+            <button class="qf-toggle issues" id="issuesToggle" title="Show only recordings with issues">
+              <span class="ft-dot">⚑</span> Issues <span class="n" id="issuesCount">0</span>
+            </button>
+          </div>
         </div>
         <div class="queue-grid" id="queueGrid"></div>
-        <div class="legend">
-          <span><b style="color:#8693a4">○</b> New</span>
-          <span><b style="color:var(--amber)">◐</b> In progress</span>
-          <span><b style="color:var(--green)">✓</b> Done</span>
-          <span><b style="color:var(--faint)">☾</b> Deferred</span>
-          <span><b style="color:var(--red)">⚑</b> Issue</span>
-        </div>
       </div>
 
       <div class="side-section ann-section">
