@@ -21,8 +21,9 @@
     tlTrack: $('tlTrack'), tlProgress: $('tlProgress'), tlPlayhead: $('tlPlayhead'),
     tlRecording: $('tlRecording'), tlCur: $('tlCur'), tlDur: $('tlDur'),
     btnPlay: $('btnPlay'), playIcon: $('playIcon'), curTime: $('curTime'), durTime: $('durTime'),
-    btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'),
+    btnBack: $('btnBack'), btnFwd: $('btnFwd'),
     skipBtn: $('skipBtn'), skipMenu: $('skipMenu'), skipVal: $('skipVal'),
+    speedBtn: $('speedBtn'), speedMenu: $('speedMenu'), speedVal: $('speedVal'),
     btnMute: $('btnMute'), btnArm: $('btnArm'),
     queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
     todoToggle: $('todoToggle'), todoCount: $('todoCount'),
@@ -66,10 +67,11 @@
     searchIndex: 0,
     skipStep: 5,                              // seconds per ←/→ skip
     skipMenuOpen: false,
-    speeds: [1, 0.5, 0.25],
-    speedIdx: 0,
+    speed: 1,                                 // playback rate
+    speedMenuOpen: false,
   };
   const SKIP_OPTIONS = [5, 10];
+  const SPEED_OPTIONS = [0.25, 0.5, 1, 1.5, 2];
 
   /* ----------------------------- helpers --------------------------------- */
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -400,11 +402,36 @@
   const seekTo = sec => { el.video.currentTime = clamp(sec, 0, state.duration || el.video.duration || 0); };
   const seekBy = dt => seekTo((el.video.currentTime || 0) + dt);
   const frameStep = dir => { el.video.pause(); seekBy(dir * (1 / 30)); };
-  function cycleSpeed() {
-    state.speedIdx = (state.speedIdx + 1) % state.speeds.length;
-    el.video.playbackRate = state.speeds[state.speedIdx];
-    el.btnSlow.innerHTML = state.speeds[state.speedIdx] + '× speed <span class="kbd">S</span>';
+
+  /* ---- playback-speed dropdown (presets + custom multiplier) -------------- */
+  function setSpeed(m) {
+    m = clamp(m || 1, 0.1, 4);
+    state.speed = m;
+    el.video.playbackRate = m;
+    el.speedVal.textContent = m + '×';
+    renderSpeedMenu();
   }
+  function renderSpeedMenu() {
+    const custom = !SPEED_OPTIONS.includes(state.speed);
+    el.speedMenu.innerHTML = '<div class="sm-head">Playback speed</div>' +
+      SPEED_OPTIONS.map(m => '<button class="skip-opt' + (m === state.speed ? ' active' : '') +
+        '" data-speed="' + m + '">' + m + '×</button>').join('') +
+      '<div class="skip-custom' + (custom ? ' active' : '') + '">' +
+        '<input id="speedCustom" type="number" min="0.1" max="4" step="0.05" placeholder="Custom" value="' + (custom ? state.speed : '') + '" />' +
+        '<span class="su">×</span><button class="skip-set" id="speedSet">Set</button>' +
+      '</div>';
+  }
+  function applyCustomSpeed() {
+    const inp = $('speedCustom'); if (!inp) return;
+    const v = parseFloat(inp.value);
+    if (v > 0) { setSpeed(v); closeSpeedMenu(); }
+  }
+  function cycleSpeed() {           // 'S' steps through the presets
+    const i = SPEED_OPTIONS.indexOf(state.speed);
+    setSpeed(i < 0 ? 1 : SPEED_OPTIONS[(i + 1) % SPEED_OPTIONS.length]);
+  }
+  function openSpeedMenu() { state.speedMenuOpen = true; el.speedMenu.classList.add('open'); }
+  function closeSpeedMenu() { state.speedMenuOpen = false; el.speedMenu.classList.remove('open'); }
 
   /* ---- skip-amount control (sits between the ← / → buttons; drives arrow keys) */
   function setSkip(n) {
@@ -757,7 +784,7 @@
   const SHORTCUTS = [
     ['Playback', [
       ['Play / pause', ['Space']], ['Seek ±5s', ['←', '→']],
-      ['Step one frame', [',', '.']], ['Cycle playback speed', ['speed btn']],
+      ['Step one frame', [',', '.']], ['Cycle playback speed', ['S']],
     ]],
     ['Annotating', [
       ['Mark imp entry, then exit', ['A']], ['Cancel current marking', ['Esc']],
@@ -839,6 +866,7 @@
     if (state.userMenuOpen && e.key === 'Escape') { e.preventDefault(); closeUserMenu(); return; }
     if (state.calendarOpen && e.key === 'Escape') { e.preventDefault(); closeCalendar(); return; }
     if (state.skipMenuOpen && e.key === 'Escape') { e.preventDefault(); closeSkipMenu(); return; }
+    if (state.speedMenuOpen && e.key === 'Escape') { e.preventDefault(); closeSpeedMenu(); return; }
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
       if (ae === el.recordSearch) onSearchKey(e);
@@ -992,7 +1020,6 @@
     el.btnPlay.onclick = togglePlay;
     el.btnBack.onclick = () => seekBy(-state.skipStep);
     el.btnFwd.onclick = () => seekBy(state.skipStep);
-    el.btnSlow.onclick = cycleSpeed;
     el.btnMute.onclick = toggleMute;
     el.btnArm.onclick = armToggle;
     el.btnFlag.onclick = toggleFlag;
@@ -1005,6 +1032,16 @@
     });
     el.skipMenu.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target.id === 'skipCustom') { e.preventDefault(); applyCustomSkip(); }
+    });
+
+    // playback-speed dropdown (presets + custom)
+    el.speedBtn.onclick = e => { e.stopPropagation(); state.speedMenuOpen ? closeSpeedMenu() : openSpeedMenu(); };
+    el.speedMenu.addEventListener('click', e => {
+      const o = e.target.closest('[data-speed]'); if (o) { setSpeed(+o.dataset.speed); closeSpeedMenu(); return; }
+      if (e.target.closest('#speedSet')) applyCustomSpeed();
+    });
+    el.speedMenu.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.id === 'speedCustom') { e.preventDefault(); applyCustomSpeed(); }
     });
 
     el.video.addEventListener('play', () => setPlayIcon(true));
@@ -1094,6 +1131,7 @@
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();
       if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
       if (state.skipMenuOpen && !e.target.closest('.skip-wrap')) closeSkipMenu();
+      if (state.speedMenuOpen && !e.target.closest('.speed-wrap')) closeSpeedMenu();
     });
 
     // floating tooltips for any [data-tip] element
@@ -1146,6 +1184,7 @@
     renderUser();
     renderDateBar();
     setSkip(state.skipStep);
+    setSpeed(state.speed);
     el.btnMute.innerHTML = MUTE_ICON;          // video starts muted
     render();
     requestAnimationFrame(rafLoop);
