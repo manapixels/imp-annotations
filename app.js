@@ -27,7 +27,7 @@
     todoToggle: $('todoToggle'), todoCount: $('todoCount'),
     annList: $('annList'), annCount: $('annCount'),
     dateBtn: $('dateBtn'), dateLabel: $('dateLabel'), todayBadge: $('todayBadge'), dateMeta: $('dateMeta'), calendar: $('calendar'),
-    recordSearch: $('recordSearch'),
+    recordSearch: $('recordSearch'), searchResults: $('searchResults'),
     // annotate modal
     anModal: $('annotateModal'), anTitle: $('anTitle'), anClose: $('anClose'),
     anStart: $('anStart'), anEnd: $('anEnd'), anDur: $('anDur'),
@@ -57,6 +57,8 @@
     activeModal: null,                        // 'annotate' | 'shortcuts'
     draft: null,                              // annotation being created / edited
     userMenuOpen: false,
+    searchOpen: false,
+    searchIndex: 0,
     speeds: [1, 0.5, 0.25],
     speedIdx: 0,
   };
@@ -710,7 +712,7 @@
       ['Edit / correct selected', ['E']], ['Delete selected', ['Del']],
     ]],
     ['General', [
-      ['Focus record search', ['/']], ['This help', ['?']],
+      ['Find an imp type', ['/']], ['This help', ['?']],
     ]],
   ];
   function buildShortcuts() {
@@ -757,10 +759,7 @@
     if (state.calendarOpen && e.key === 'Escape') { e.preventDefault(); closeCalendar(); return; }
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
-      if (ae === el.recordSearch) {
-        if (e.key === 'Enter') doRecordJump();
-        if (e.key === 'Escape') ae.blur();
-      }
+      if (ae === el.recordSearch) onSearchKey(e);
       return;
     }
 
@@ -827,13 +826,76 @@
     if (e.key === ' ')      { e.preventDefault(); chooseDir('HOVER'); return; }
   }
 
-  /* ============================ SEARCH JUMP ============================== */
-  function doRecordJump() {
+  /* ===================== FIND BY IMP TYPE (header search) =============== */
+  function whenLabel(iso) {
+    return iso === D.TODAY_ISO ? 'Today' : MONTHS_SHORT[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10));
+  }
+  function renderSearch() {
     const q = el.recordSearch.value.trim().toLowerCase();
-    if (!q) return;
-    const v = D.VIDEOS.find(x => x.id.toLowerCase().includes(q) || x.slot.includes(q));
-    if (v) { selectVideo(v.id); el.recordSearch.blur(); el.recordSearch.value = ''; }
-    else toast({ text: 'No recording matches “' + q + '”', variant: 'danger' });
+    if (!q) { closeSearch(); return; }
+    const matchIds = new Set(D.IMP_TYPES
+      .filter(t => t.name.toLowerCase().includes(q) || t.element.includes(q))
+      .map(t => t.id));
+
+    // recordings (across every day) that contain a matching imp type
+    const results = [];
+    D.VIDEOS.forEach(v => {
+      const hits = v.annotations.filter(a => matchIds.has(a.typeId));
+      if (hits.length) results.push({ v: v, hits: hits });
+    });
+    results.sort((a, b) => a.v.date === b.v.date ? (a.v.slot < b.v.slot ? -1 : 1) : (a.v.date < b.v.date ? 1 : -1));
+
+    state.searchOpen = true;
+    state.searchIndex = 0;
+    el.searchResults.classList.add('open');
+
+    if (!results.length) {
+      el.searchResults.innerHTML = '<div class="sr-empty">No imps tagged that match “' + q + '”.</div>';
+      return;
+    }
+    const totalHits = results.reduce((s, r) => s + r.hits.length, 0);
+    let html = '<div class="sr-head">' + totalHits + ' tagged in ' + results.length + ' recording' + (results.length === 1 ? '' : 's') + '</div>';
+    html += results.map(r => {
+      const names = [...new Set(r.hits.map(h => (typeOf(h.typeId) || {}).name))];
+      const summary = names.length === 1 ? names[0] : names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
+      const unrev = r.hits.filter(h => h.status === 'unreviewed').length;
+      const st = statusOf(r.v);
+      return '<button class="sr-row" data-vid="' + r.v.id + '" data-ann="' + r.hits[0].id + '">' +
+        '<span class="sr-status" style="color:' + (st === 'issue' ? 'var(--red)' : st === 'done' ? 'var(--green)' : '#8693a4') + '">' + STATUS_GLYPH[st] + '</span>' +
+        '<span class="sr-when">' + whenLabel(r.v.date) + ' · ' + r.v.slot + '</span>' +
+        '<span class="sr-types">' + summary + '</span>' +
+        '<span class="sr-count' + (unrev ? ' unv' : '') + '"' + (unrev ? ' title="' + unrev + ' still to verify"' : '') + '>×' + r.hits.length + '</span>' +
+        '</button>';
+    }).join('');
+    el.searchResults.innerHTML = html;
+    highlightSearch();
+  }
+  function highlightSearch() {
+    const rows = el.searchResults.querySelectorAll('.sr-row');
+    rows.forEach((r, i) => r.classList.toggle('active', i === state.searchIndex));
+    const active = rows[state.searchIndex];
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+  function closeSearch() { state.searchOpen = false; el.searchResults.classList.remove('open'); el.searchResults.innerHTML = ''; }
+  function goToResult(vid, annId) {
+    const v = D.VIDEOS.find(x => x.id === vid); if (!v) return;
+    state.selectedDate = v.date;
+    const p = v.date.split('-').map(Number); state.calMonth = { y: p[0], m: p[1] - 1 };
+    state.queueFilter = 'all';            // ensure the recording shows in the queue
+    selectVideo(vid);                     // selects + plays + renders (clears selectedAnnId)
+    const a = annId && v.annotations.find(x => x.id === annId);
+    if (a) { state.selectedAnnId = annId; seekTo(a.startSec); renderAnnList(); renderMarkers(); }
+    renderDateBar();
+    el.recordSearch.value = ''; el.recordSearch.blur(); closeSearch();
+  }
+  function onSearchKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); el.recordSearch.value = ''; closeSearch(); el.recordSearch.blur(); return; }
+    if (!state.searchOpen) return;
+    const rows = el.searchResults.querySelectorAll('.sr-row');
+    if (!rows.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); state.searchIndex = Math.min(state.searchIndex + 1, rows.length - 1); highlightSearch(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); state.searchIndex = Math.max(state.searchIndex - 1, 0); highlightSearch(); }
+    else if (e.key === 'Enter') { e.preventDefault(); const r = rows[state.searchIndex]; if (r) goToResult(r.dataset.vid, r.dataset.ann); }
   }
 
   /* ============================ SIZE GUARD =============================== */
@@ -886,6 +948,13 @@
       const id = row.dataset.id;
       const btn = e.target.closest('[data-act]');
       if (!btn) { jumpToAnn(id); return; }   // the whole card is the jump target
+    // header search: find recordings by imp type
+    el.recordSearch.addEventListener('input', renderSearch);
+    el.recordSearch.addEventListener('focus', () => { if (el.recordSearch.value.trim()) renderSearch(); });
+    el.searchResults.addEventListener('click', e => {
+      const r = e.target.closest('.sr-row'); if (r) goToResult(r.dataset.vid, r.dataset.ann);
+    });
+
       switch (btn.dataset.act) {
         case 'edit':    editAnn(id); break;
         case 'del':     deleteAnn(id); break;
@@ -899,6 +968,7 @@
     // date picker
     el.dateBtn.onclick = e => { e.stopPropagation(); state.calendarOpen ? closeCalendar() : openCalendar(); };
     el.calendar.addEventListener('click', e => {
+      if (state.searchOpen && !e.target.closest('.search-wrap')) closeSearch();
       e.stopPropagation();
       const nav = e.target.closest('[data-cal]'); if (nav) { shiftCalMonth(nav.dataset.cal === 'next' ? 1 : -1); return; }
       const cell = e.target.closest('[data-date]'); if (cell && !cell.disabled) setDate(cell.dataset.date);
