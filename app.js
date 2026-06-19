@@ -41,6 +41,10 @@
     toastWrap: $('toast-wrap'), floatTip: $('floatTip'),
     // user menu
     userBtn: $('userBtn'), userName: $('userName'), userAvatar: $('userAvatar'), userDropdown: $('userDropdown'),
+    // add-user modal
+    addUserModal: $('addUserModal'), auClose: $('auClose'), auCancel: $('auCancel'), auCreate: $('auCreate'),
+    auName: $('auName'), auInitials: $('auInitials'), auAvatar: $('auAvatar'),
+    auPrevName: $('auPrevName'), auPrevRole: $('auPrevRole'),
   };
 
   const state = {
@@ -688,7 +692,8 @@
         avatar(x) +
         '<span class="ui-meta"><span class="ui-name">' + x.name + '</span><span class="ui-role">' + x.role + '</span></span>' +
         (x.id === state.currentUserId ? '<span class="ui-check">✓</span>' : '') +
-        '</button>').join('');
+        '</button>').join('') +
+      '<button class="user-add" data-add="1">+ Add reviewer</button>';
   }
   function openUserMenu() { state.userMenuOpen = true; el.userDropdown.classList.add('open'); }
   function closeUserMenu() { state.userMenuOpen = false; el.userDropdown.classList.remove('open'); }
@@ -696,6 +701,43 @@
     state.currentUserId = id;
     closeUserMenu(); renderUser();
     toast({ text: 'Now reviewing as ' + USER_BY_ID[id].name });
+  }
+
+  /* ---- add a new reviewer ----------------------------------------------- */
+  let auInitialsEdited = false;
+  function deriveInitials(name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    return (parts[0][0] + (parts[1] ? parts[1][0] : (parts[0][1] || ''))).toUpperCase();
+  }
+  function openAddUser() {
+    state.activeModal = 'addUser';
+    state.auRole = 'Reviewer';
+    auInitialsEdited = false;
+    el.auName.value = ''; el.auInitials.value = '';
+    el.addUserModal.classList.add('open');
+    renderAddUser();
+    setTimeout(() => el.auName.focus(), 30);
+  }
+  function closeAddUser() { el.addUserModal.classList.remove('open'); state.activeModal = null; }
+  function renderAddUser() {
+    const name = el.auName.value.trim();
+    if (!auInitialsEdited) el.auInitials.value = deriveInitials(name);
+    el.auAvatar.textContent = el.auInitials.value || '–';
+    el.auPrevName.textContent = name || 'New reviewer';
+    el.auPrevRole.textContent = state.auRole;
+    el.addUserModal.querySelectorAll('[data-role]').forEach(b => b.classList.toggle('active', b.dataset.role === state.auRole));
+    el.auCreate.disabled = !(name && el.auInitials.value.trim());
+  }
+  function createUser() {
+    const name = el.auName.value.trim(), initials = el.auInitials.value.trim().toUpperCase().slice(0, 3);
+    if (!(name && initials)) return;
+    const id = 'u-' + (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'user') + '-' + D.USERS.length;
+    const user = { id: id, name: name, initials: initials, role: state.auRole };
+    D.USERS.push(user); USER_BY_ID[id] = user;
+    state.currentUserId = id;
+    closeAddUser(); renderUser();
+    toast({ text: 'Added ' + name + ' — now reviewing as them', variant: 'good' });
   }
 
   /* ============================ SHORTCUTS MODAL ========================== */
@@ -774,6 +816,11 @@
     if (state.activeModal === 'annotate') return onAnnotateKey(e);
     if (state.activeModal === 'shortcuts') {
       if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeShortcuts(); }
+      return;
+    }
+    if (state.activeModal === 'addUser') {
+      if (e.key === 'Escape') { e.preventDefault(); closeAddUser(); }
+      else if (e.key === 'Enter') { e.preventDefault(); createUser(); }
       return;
     }
     if (state.userMenuOpen && e.key === 'Escape') { e.preventDefault(); closeUserMenu(); return; }
@@ -1013,8 +1060,19 @@
     // user menu
     el.userBtn.onclick = e => { e.stopPropagation(); state.userMenuOpen ? closeUserMenu() : openUserMenu(); };
     el.userDropdown.addEventListener('click', e => {
+      if (e.target.closest('[data-add]')) { closeUserMenu(); openAddUser(); return; }
       const it = e.target.closest('[data-user]'); if (it) selectUser(it.dataset.user);
     });
+
+    // add-user modal
+    el.auClose.onclick = closeAddUser;
+    el.auCancel.onclick = closeAddUser;
+    el.auCreate.onclick = createUser;
+    el.addUserModal.addEventListener('click', e => { if (e.target === el.addUserModal) closeAddUser(); });
+    el.auName.addEventListener('input', renderAddUser);
+    el.auInitials.addEventListener('input', () => { auInitialsEdited = true; renderAddUser(); });
+    el.addUserModal.querySelectorAll('[data-role]').forEach(b =>
+      b.onclick = () => { state.auRole = b.dataset.role; renderAddUser(); });
     document.addEventListener('click', e => {
       if (state.userMenuOpen && !e.target.closest('.user-menu')) closeUserMenu();
       if (state.calendarOpen && !e.target.closest('.date-bar')) closeCalendar();

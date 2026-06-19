@@ -236,6 +236,47 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="addUserModal">
+  <div class="modal modal-sm" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>Add reviewer</h2>
+      <div class="spacer"></div>
+      <button class="x" id="auClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="au-field">
+        <label for="auName">Full name</label>
+        <input id="auName" type="text" placeholder="e.g. Jordan Lee" autocomplete="off" />
+      </div>
+      <div class="au-row">
+        <div class="au-field au-initials">
+          <label for="auInitials">Initials</label>
+          <input id="auInitials" type="text" maxlength="3" placeholder="JL" autocomplete="off" />
+        </div>
+        <div class="au-field au-role">
+          <label>Role</label>
+          <div class="au-roles">
+            <button class="au-roleopt" data-role="Reviewer">Reviewer</button>
+            <button class="au-roleopt" data-role="Lead reviewer">Lead reviewer</button>
+          </div>
+        </div>
+      </div>
+      <div class="au-preview">
+        <span class="avatar" id="auAvatar">–</span>
+        <div class="aup-meta">
+          <div class="aup-name" id="auPrevName">New reviewer</div>
+          <div class="aup-role" id="auPrevRole">Reviewer</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn ghost" id="auCancel">Cancel <span class="kbd">Esc</span></button>
+      <button class="btn primary" id="auCreate" disabled>Add reviewer <span class="kbd">↵</span></button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-wrap"></div>
 <div id="floatTip" class="float-tip" role="tooltip"></div>
 

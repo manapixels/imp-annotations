@@ -509,6 +509,127 @@ input {
   font-weight: 700;
 }
 
+.user-add {
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 8px;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  background: none;
+  color: var(--amber);
+  font-family: var(--ff-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.user-add:hover {
+  background: rgba(247, 179, 43, .08);
+}
+
+/* ---- add-reviewer modal --------------------------------------------------- */
+.modal.modal-sm {
+  max-width: 440px;
+}
+
+.au-field {
+  margin-bottom: 14px;
+}
+
+.au-field label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.au-field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 9px 11px;
+  color: var(--txt);
+  font-size: 14px;
+  outline: none;
+}
+
+.au-field input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(247, 179, 43, .12);
+}
+
+.au-row {
+  display: flex;
+  gap: 12px;
+}
+
+.au-row .au-initials {
+  width: 96px;
+  flex: none;
+}
+
+.au-row .au-role {
+  flex: 1;
+}
+
+.au-roles {
+  display: flex;
+  gap: 6px;
+}
+
+.au-roleopt {
+  flex: 1;
+  height: 38px;
+  border-radius: var(--r-sm);
+  background: var(--panel-3);
+  border: 1px solid var(--line);
+  color: var(--txt-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.au-roleopt:hover {
+  border-color: #3a4554;
+  color: var(--txt);
+}
+
+.au-roleopt.active {
+  background: rgba(247, 179, 43, .14);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.au-preview {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 4px;
+  padding: 11px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.au-preview .avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.au-preview .aup-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.au-preview .aup-role {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---- workspace ------------------------------------------------------------ */
 .workspace {
   display: grid;
