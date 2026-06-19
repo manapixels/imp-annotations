@@ -21,7 +21,7 @@
     tlTrack: $('tlTrack'), tlProgress: $('tlProgress'), tlPlayhead: $('tlPlayhead'),
     tlRecording: $('tlRecording'), tlCur: $('tlCur'), tlDur: $('tlDur'),
     btnPlay: $('btnPlay'), playIcon: $('playIcon'), curTime: $('curTime'), durTime: $('durTime'),
-    btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'), btnStep: $('btnStep'),
+    btnBack: $('btnBack'), btnFwd: $('btnFwd'), btnSlow: $('btnSlow'),
     skipBtn: $('skipBtn'), skipMenu: $('skipMenu'), skipVal: $('skipVal'),
     btnMute: $('btnMute'), btnArm: $('btnArm'),
     queueGrid: $('queueGrid'), issuesToggle: $('issuesToggle'), issuesCount: $('issuesCount'),
@@ -69,7 +69,7 @@
     speeds: [1, 0.5, 0.25],
     speedIdx: 0,
   };
-  const SKIP_OPTIONS = [1, 2, 5, 10, 30];
+  const SKIP_OPTIONS = [5, 10];
 
   /* ----------------------------- helpers --------------------------------- */
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
@@ -406,24 +406,37 @@
     el.btnSlow.innerHTML = state.speeds[state.speedIdx] + '× speed <span class="kbd">S</span>';
   }
 
-  /* ---- skip-amount control (drives the back/fwd buttons + arrow keys) ----- */
+  /* ---- skip-amount control (sits between the ← / → buttons; drives arrow keys) */
   function setSkip(n) {
+    n = clamp(Math.round(n) || 5, 1, 600);
     state.skipStep = n;
     el.skipVal.textContent = n + 's';
-    el.btnBack.innerHTML = n + 's <span class="kbd">←</span>';
-    el.btnFwd.innerHTML = n + 's <span class="kbd">→</span>';
     renderSkipMenu();
   }
   function renderSkipMenu() {
+    const custom = !SKIP_OPTIONS.includes(state.skipStep);
     el.skipMenu.innerHTML = '<div class="sm-head">Skip amount</div>' +
       SKIP_OPTIONS.map(n => '<button class="skip-opt' + (n === state.skipStep ? ' active' : '') +
-        '" data-skip="' + n + '">' + n + ' second' + (n === 1 ? '' : 's') + '</button>').join('');
+        '" data-skip="' + n + '">' + n + ' seconds</button>').join('') +
+      '<div class="skip-custom' + (custom ? ' active' : '') + '">' +
+        '<input id="skipCustom" type="number" min="1" max="600" placeholder="Custom" value="' + (custom ? state.skipStep : '') + '" />' +
+        '<span class="su">s</span><button class="skip-set" id="skipSet">Set</button>' +
+      '</div>';
+  }
+  function applyCustomSkip() {
+    const inp = $('skipCustom'); if (!inp) return;
+    const v = parseInt(inp.value, 10);
+    if (v > 0) { setSkip(v); closeSkipMenu(); }
   }
   function openSkipMenu() { state.skipMenuOpen = true; el.skipMenu.classList.add('open'); }
   function closeSkipMenu() { state.skipMenuOpen = false; el.skipMenu.classList.remove('open'); }
+
+  const MUTE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>';
+  const SOUND_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a9 9 0 0 1 0 12"/></svg>';
   function toggleMute() {
     el.video.muted = !el.video.muted;
-    el.btnMute.textContent = el.video.muted ? '🔇 muted' : '🔊 sound';
+    el.btnMute.innerHTML = el.video.muted ? MUTE_ICON : SOUND_ICON;
+    el.btnMute.title = el.video.muted ? 'Unmute' : 'Mute';
   }
 
   /* ====================== RECORD AN ANNOTATION =========================== */
@@ -980,15 +993,18 @@
     el.btnBack.onclick = () => seekBy(-state.skipStep);
     el.btnFwd.onclick = () => seekBy(state.skipStep);
     el.btnSlow.onclick = cycleSpeed;
-    el.btnStep.onclick = () => frameStep(1);
     el.btnMute.onclick = toggleMute;
     el.btnArm.onclick = armToggle;
     el.btnFlag.onclick = toggleFlag;
 
-    // skip-amount dropdown
+    // skip-amount dropdown (5 / 10 / custom)
     el.skipBtn.onclick = e => { e.stopPropagation(); state.skipMenuOpen ? closeSkipMenu() : openSkipMenu(); };
     el.skipMenu.addEventListener('click', e => {
-      const o = e.target.closest('[data-skip]'); if (o) { setSkip(+o.dataset.skip); closeSkipMenu(); }
+      const o = e.target.closest('[data-skip]'); if (o) { setSkip(+o.dataset.skip); closeSkipMenu(); return; }
+      if (e.target.closest('#skipSet')) applyCustomSkip();
+    });
+    el.skipMenu.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.id === 'skipCustom') { e.preventDefault(); applyCustomSkip(); }
     });
 
     el.video.addEventListener('play', () => setPlayIcon(true));
@@ -1130,6 +1146,7 @@
     renderUser();
     renderDateBar();
     setSkip(state.skipStep);
+    el.btnMute.innerHTML = MUTE_ICON;          // video starts muted
     render();
     requestAnimationFrame(rafLoop);
   }
